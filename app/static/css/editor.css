@@ -101,6 +101,17 @@
     border-color: #cbd5e1;
 }
 
+.btn-danger {
+    color: var(--danger);
+    border-color: #fecaca;
+}
+
+.btn-danger:hover {
+    background: #fef2f2;
+    color: var(--danger);
+    border-color: var(--danger);
+}
+
 /* Editor Body */
 .editor-body {
     flex: 1;

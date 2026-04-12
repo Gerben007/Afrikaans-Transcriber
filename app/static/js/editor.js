@@ -322,6 +322,23 @@
             const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
             downloadBlob(blob, `transkripsie_${JOB_ID.substring(0, 8)}.txt`);
         });
+
+        document.getElementById("btn-delete").addEventListener("click", async () => {
+            if (!confirm("Is jy seker jy wil hierdie transkripsie verwyder? Dit kan nie ongedaan gemaak word nie.")) return;
+            try {
+                const res = await fetch(`/api/v1/jobs/${JOB_ID}`, { method: "DELETE" });
+                if (!res.ok) throw new Error("Delete failed");
+                // Remove from localStorage history
+                const key = "transcriber_jobs";
+                try {
+                    const history = JSON.parse(localStorage.getItem(key) || "[]");
+                    localStorage.setItem(key, JSON.stringify(history.filter(h => h.job_id !== JOB_ID)));
+                } catch {}
+                window.location.href = "/";
+            } catch (err) {
+                alert("Kon nie verwyder nie: " + err.message);
+            }
+        });
     }
 
     function downloadBlob(blob, filename) {

@@ -159,16 +159,44 @@
         jobsList.innerHTML = "";
 
         history.forEach((item) => {
-            const card = document.createElement("a");
-            card.href = `/editor/${item.job_id}`;
+            const card = document.createElement("div");
             card.className = "job-card";
-            card.innerHTML = `
-                <div class="job-card-left">
-                    <code>${item.job_id.substring(0, 8)}...</code>
-                    <span>${formatDate(item.date)}</span>
-                </div>
-                <span class="badge badge-${item.status || 'pending'}">${item.status || 'pending'}</span>
+
+            const link = document.createElement("a");
+            link.href = `/editor/${item.job_id}`;
+            link.className = "job-card-left";
+            link.innerHTML = `
+                <code>${item.job_id.substring(0, 8)}...</code>
+                <span>${formatDate(item.date)}</span>
             `;
+            card.appendChild(link);
+
+            const right = document.createElement("div");
+            right.style.cssText = "display:flex;align-items:center;gap:0.5rem;";
+
+            const badge = document.createElement("span");
+            badge.className = `badge badge-${item.status || "pending"}`;
+            badge.textContent = item.status || "pending";
+            right.appendChild(badge);
+
+            const delBtn = document.createElement("button");
+            delBtn.className = "btn-icon";
+            delBtn.title = "Verwyder";
+            delBtn.innerHTML = "&times;";
+            delBtn.style.cssText = "color:#dc2626;font-size:1.2rem;";
+            delBtn.addEventListener("click", async (e) => {
+                e.stopPropagation();
+                if (!confirm("Verwyder hierdie transkripsie?")) return;
+                try {
+                    await fetch(`/api/v1/jobs/${item.job_id}`, { method: "DELETE" });
+                } catch {}
+                const h = getHistory().filter(j => j.job_id !== item.job_id);
+                localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
+                renderHistory();
+            });
+            right.appendChild(delBtn);
+
+            card.appendChild(right);
             jobsList.appendChild(card);
 
             // Poll for status updates

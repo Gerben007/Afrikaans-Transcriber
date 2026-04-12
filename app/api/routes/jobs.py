@@ -8,11 +8,15 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import logging
+
 from app.api.deps import get_db
 from app.api.schemas import JobResponse, TranscriptData, TranscriptUpdate
 from app.core.config import settings
 from app.core.models import Job
 from app.core.storage import download_file, get_minio_client, presigned_get_url, upload_file
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -188,3 +192,40 @@ async def export_training_data(job_id: UUID, db: AsyncSession = Depends(get_db))
         "language": "af",
         "pairs": training_pairs,
     }
+
+
+@router.delete("/jobs/{job_id}")
+async def delete_job(job_id: UUID, db: AsyncSession = Depends(get_db)):
+    """Delete a job and its files from MinIO."""
+    result = await db.execute(select(Job).where(Job.job_id == job_id))
+    job = result.scalar_one_or_none()
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    client = get_minio_client()
+
+    # Delete audio file from MinIO
+    if job.audio_path:
+        try:
+            client.remove_object(settings.MINIO_BUCKET_AUDIO, job.audio_path)
+        except Exception as e:
+            logger.warning("Failed to delete audio %s: %s", job.audio_path, e)
+
+    # Delete transcript files from MinIO
+    if job.transcript_path:
+        try:
+            client.remove_object(settings.MINIO_BUCKET_TRANSCRIPTS, job.transcript_path)
+        except Exception as e:
+            logger.warning("Failed to delete transcript %s: %s", job.transcript_path, e)
+
+    if job.transcript_json_path:
+        try:
+            client.remove_object(settings.MINIO_BUCKET_TRANSCRIPTS, job.transcript_json_path)
+        except Exception as e:
+            logger.warning("Failed to delete transcript JSON %s: %s", job.transcript_json_path, e)
+
+    # Delete from database
+    await db.delete(job)
+    await db.commit()
+
+    return {"status": "deleted"}
