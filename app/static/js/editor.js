@@ -129,14 +129,36 @@
     }
 
     function pollUntilReady() {
+        let liveContainerShown = false;
+        let lastSegmentCount = 0;
+
         const timer = setInterval(async () => {
             const res = await fetch(`/api/v1/jobs/${JOB_ID}`);
             if (!res.ok) return;
             jobData = await res.json();
             updateProcessingUI(jobData);
 
+            // Fetch live transcript while processing
+            if (jobData.status === "processing") {
+                try {
+                    const tRes = await fetch(`/api/v1/jobs/${JOB_ID}/transcript`);
+                    if (tRes.ok) {
+                        const tData = await tRes.json();
+                        const liveSegs = tData.segments || [];
+                        if (liveSegs.length > lastSegmentCount) {
+                            lastSegmentCount = liveSegs.length;
+                            showLiveTranscript(liveSegs);
+                            liveContainerShown = true;
+                        }
+                    }
+                } catch {}
+            }
+
             if (jobData.status === "completed") {
                 clearInterval(timer);
+                // Remove live transcript container
+                const liveEl = document.getElementById("live-transcript");
+                if (liveEl) liveEl.remove();
                 processingEl.classList.add("hidden");
                 await loadEditor();
             } else if (jobData.status === "failed") {
@@ -147,6 +169,46 @@
                 processingEl.innerHTML = `<p style="color:var(--text-muted)">Gekanselleer. <a href="/">Terug</a></p>`;
             }
         }, POLL_INTERVAL);
+    }
+
+    function showLiveTranscript(liveSegments) {
+        let liveEl = document.getElementById("live-transcript");
+        if (!liveEl) {
+            liveEl = document.createElement("div");
+            liveEl.id = "live-transcript";
+            liveEl.className = "live-transcript";
+            // Insert after the processing card
+            const procCard = document.querySelector(".processing-card");
+            if (procCard && procCard.parentNode) {
+                procCard.parentNode.appendChild(liveEl);
+            }
+        }
+
+        liveEl.innerHTML = "";
+        const heading = document.createElement("h3");
+        heading.textContent = "Lewendige transkripsie";
+        heading.style.cssText = "font-size:0.9rem;color:var(--text-muted);margin-bottom:0.75rem;";
+        liveEl.appendChild(heading);
+
+        liveSegments.forEach(seg => {
+            const div = document.createElement("div");
+            div.className = "live-segment";
+
+            const ts = document.createElement("span");
+            ts.className = "live-ts";
+            ts.textContent = formatTimestamp(seg.start);
+
+            const txt = document.createElement("span");
+            txt.className = "live-text";
+            txt.textContent = seg.text;
+
+            div.appendChild(ts);
+            div.appendChild(txt);
+            liveEl.appendChild(div);
+        });
+
+        // Scroll to bottom
+        liveEl.scrollTop = liveEl.scrollHeight;
     }
 
     async function loadEditor() {

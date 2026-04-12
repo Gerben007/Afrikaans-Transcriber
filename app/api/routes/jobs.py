@@ -100,23 +100,41 @@ async def stream_audio(job_id: UUID, db: AsyncSession = Depends(get_db)):
 
 @router.get("/jobs/{job_id}/transcript")
 async def get_transcript(job_id: UUID, db: AsyncSession = Depends(get_db)):
-    """Return the structured transcript JSON with word-level timestamps."""
+    """Return the structured transcript JSON. Serves partial transcript during processing."""
     result = await db.execute(select(Job).where(Job.job_id == job_id))
     job = result.scalar_one_or_none()
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
-    if not job.transcript_json_path:
-        raise HTTPException(status_code=404, detail="Transcript not ready")
 
-    tmp_path = os.path.join(tempfile.gettempdir(), f"read_{job_id}.json")
-    try:
-        download_file(settings.MINIO_BUCKET_TRANSCRIPTS, job.transcript_json_path, tmp_path)
-        with open(tmp_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return JSONResponse(data)
-    finally:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
+    # If completed, serve the final transcript
+    if job.transcript_json_path:
+        tmp_path = os.path.join(tempfile.gettempdir(), f"read_{job_id}.json")
+        try:
+            download_file(settings.MINIO_BUCKET_TRANSCRIPTS, job.transcript_json_path, tmp_path)
+            with open(tmp_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return JSONResponse(data)
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
+    # If processing, try to serve the partial transcript
+    if job.status == "processing":
+        partial_key = f"{job_id}.partial.json"
+        tmp_path = os.path.join(tempfile.gettempdir(), f"read_{job_id}_partial.json")
+        try:
+            download_file(settings.MINIO_BUCKET_TRANSCRIPTS, partial_key, tmp_path)
+            with open(tmp_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return JSONResponse(data)
+        except Exception:
+            # No partial yet — that's fine
+            return JSONResponse({"partial": True, "segments": []})
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
+    raise HTTPException(status_code=404, detail="Transcript not ready")
 
 
 @router.put("/jobs/{job_id}/transcript")
