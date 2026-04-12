@@ -4,7 +4,7 @@ import tempfile
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,14 +28,10 @@ async def get_job(job_id: UUID, db: AsyncSession = Depends(get_db)):
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    audio_url = None
+    # Use proxy endpoints instead of MinIO presigned URLs (browser can't reach minio:9000)
+    audio_url = f"/api/v1/jobs/{job_id}/audio"
     transcript_url = None
     transcript_json_url = None
-
-    try:
-        audio_url = presigned_get_url(settings.MINIO_BUCKET_AUDIO, job.audio_path)
-    except Exception:
-        pass
 
     if job.status == "completed" and job.transcript_path:
         try:
@@ -65,6 +61,41 @@ async def get_job(job_id: UUID, db: AsyncSession = Depends(get_db)):
         error_message=job.error_message,
         created_at=job.created_at,
     )
+
+
+@router.get("/jobs/{job_id}/audio")
+async def stream_audio(job_id: UUID, db: AsyncSession = Depends(get_db)):
+    """Stream audio file from MinIO through the API (avoids internal hostname issues)."""
+    result = await db.execute(select(Job).where(Job.job_id == job_id))
+    job = result.scalar_one_or_none()
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    client = get_minio_client()
+    try:
+        response = client.get_object(settings.MINIO_BUCKET_AUDIO, job.audio_path)
+        # Guess content type from extension
+        ext = os.path.splitext(job.audio_path)[1].lower()
+        content_types = {
+            ".mp3": "audio/mpeg", ".wav": "audio/wav", ".flac": "audio/flac",
+            ".ogg": "audio/ogg", ".opus": "audio/opus", ".m4a": "audio/mp4",
+            ".mp4": "video/mp4", ".webm": "video/webm", ".aac": "audio/aac",
+            ".3gp": "audio/3gpp",
+        }
+        ct = content_types.get(ext, "application/octet-stream")
+
+        def iter_content():
+            try:
+                for chunk in response.stream(8192):
+                    yield chunk
+            finally:
+                response.close()
+                response.release_conn()
+
+        return StreamingResponse(iter_content(), media_type=ct)
+    except Exception as e:
+        logger.error("Failed to stream audio for job %s: %s", job_id, e)
+        raise HTTPException(status_code=404, detail="Audio file not found")
 
 
 @router.get("/jobs/{job_id}/transcript")
