@@ -86,8 +86,12 @@
             });
 
             if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.detail || "Upload het misluk");
+                let msg = "Upload het misluk";
+                try {
+                    const err = await response.json();
+                    msg = err.detail || JSON.stringify(err);
+                } catch { /* ignore parse errors */ }
+                throw new Error(msg);
             }
 
             const data = await response.json();

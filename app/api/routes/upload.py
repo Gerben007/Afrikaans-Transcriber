@@ -2,7 +2,7 @@ import os
 import tempfile
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
@@ -20,7 +20,7 @@ MAX_FILE_SIZE = 500 * 1024 * 1024  # 500 MB
 @router.post("/upload", response_model=UploadResponse, status_code=201)
 async def upload_audio(
     file: UploadFile,
-    client_email: str,
+    client_email: str = Form(...),
     db: AsyncSession = Depends(get_db),
 ):
     # Validate file extension
