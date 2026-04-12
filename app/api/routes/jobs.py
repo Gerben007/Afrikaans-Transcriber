@@ -57,6 +57,8 @@ async def get_job(job_id: UUID, db: AsyncSession = Depends(get_db)):
         job_id=job.job_id,
         status=job.status,
         client_email=job.client_email,
+        progress=job.progress or 0,
+        audio_duration=job.audio_duration,
         audio_url=audio_url,
         transcript_url=transcript_url,
         transcript_json_url=transcript_json_url,
@@ -229,3 +231,20 @@ async def delete_job(job_id: UUID, db: AsyncSession = Depends(get_db)):
     await db.commit()
 
     return {"status": "deleted"}
+
+
+@router.post("/jobs/{job_id}/cancel")
+async def cancel_job(job_id: UUID, db: AsyncSession = Depends(get_db)):
+    """Cancel a pending or processing job."""
+    result = await db.execute(select(Job).where(Job.job_id == job_id))
+    job = result.scalar_one_or_none()
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status not in ("pending", "processing"):
+        raise HTTPException(status_code=400, detail="Job cannot be cancelled")
+
+    job.status = "cancelled"
+    job.progress = 0
+    await db.commit()
+
+    return {"status": "cancelled"}

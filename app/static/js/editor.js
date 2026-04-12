@@ -46,8 +46,14 @@
         if (jobData.status === "pending" || jobData.status === "processing") {
             loadingEl.classList.add("hidden");
             processingEl.classList.remove("hidden");
-            processingStatus.textContent = jobData.status === "pending" ? "In die tou..." : "Word verwerk...";
+            updateProcessingUI(jobData);
+            setupCancel();
             pollUntilReady();
+            return;
+        }
+
+        if (jobData.status === "cancelled") {
+            loadingEl.innerHTML = `<p style="color:var(--text-muted)">Transkripsie is gekanselleer. <a href="/">Terug</a></p>`;
             return;
         }
 
@@ -59,12 +65,75 @@
         await loadEditor();
     }
 
+    let progressStartTime = null;
+    let progressStartPct = null;
+
+    function updateProcessingUI(data) {
+        const pct = data.progress || 0;
+        const duration = data.audio_duration;
+
+        if (data.status === "pending") {
+            processingStatus.textContent = "In die tou...";
+        } else {
+            processingStatus.textContent = "Word verwerk...";
+        }
+
+        // Progress bar
+        const fillEl = document.getElementById("proc-progress-fill");
+        const pctEl = document.getElementById("proc-progress-pct");
+        const etaEl = document.getElementById("proc-eta");
+
+        if (fillEl) fillEl.style.width = pct + "%";
+        if (pctEl) pctEl.textContent = pct + "%";
+
+        // ETA calculation
+        if (pct > 5 && etaEl) {
+            if (!progressStartTime || !progressStartPct) {
+                progressStartTime = Date.now();
+                progressStartPct = pct;
+            }
+            const elapsed = (Date.now() - progressStartTime) / 1000;
+            const pctDone = pct - progressStartPct;
+            if (pctDone > 0 && elapsed > 5) {
+                const secsPerPct = elapsed / pctDone;
+                const remaining = Math.round(secsPerPct * (100 - pct));
+                if (remaining > 0) {
+                    const mins = Math.floor(remaining / 60);
+                    const secs = remaining % 60;
+                    etaEl.textContent = `Geskat: ${mins > 0 ? mins + " min " : ""}${secs}s oor`;
+                }
+            }
+        }
+
+        // Show duration info
+        if (duration && etaEl && pct <= 5) {
+            const mins = Math.floor(duration / 60);
+            const secs = Math.floor(duration % 60);
+            etaEl.textContent = `Klanklengte: ${mins}:${String(secs).padStart(2, "0")}`;
+        }
+    }
+
+    function setupCancel() {
+        const btn = document.getElementById("btn-cancel");
+        if (btn) {
+            btn.addEventListener("click", async () => {
+                if (!confirm("Kanselleer hierdie transkripsie?")) return;
+                try {
+                    await fetch(`/api/v1/jobs/${JOB_ID}/cancel`, { method: "POST" });
+                    window.location.href = "/";
+                } catch (err) {
+                    alert("Kon nie kanselleer nie: " + err.message);
+                }
+            });
+        }
+    }
+
     function pollUntilReady() {
         const timer = setInterval(async () => {
             const res = await fetch(`/api/v1/jobs/${JOB_ID}`);
             if (!res.ok) return;
             jobData = await res.json();
-            processingStatus.textContent = jobData.status === "pending" ? "In die tou..." : "Word verwerk...";
+            updateProcessingUI(jobData);
 
             if (jobData.status === "completed") {
                 clearInterval(timer);
@@ -73,6 +142,9 @@
             } else if (jobData.status === "failed") {
                 clearInterval(timer);
                 processingEl.innerHTML = `<p style="color:var(--danger)">Misluk: ${jobData.error_message || ""}</p>`;
+            } else if (jobData.status === "cancelled") {
+                clearInterval(timer);
+                processingEl.innerHTML = `<p style="color:var(--text-muted)">Gekanselleer. <a href="/">Terug</a></p>`;
             }
         }, POLL_INTERVAL);
     }

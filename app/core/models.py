@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Index, String, Text
+from sqlalchemy import Column, DateTime, Float, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase
 
@@ -19,6 +19,8 @@ class Job(Base):
     transcript_path = Column(Text, nullable=True)
     transcript_json_path = Column(Text, nullable=True)
     status = Column(String(50), nullable=False, default="pending")
+    progress = Column(Integer, nullable=False, default=0)
+    audio_duration = Column(Float, nullable=True)
     payment_ref = Column(String(255), nullable=True)
     error_message = Column(Text, nullable=True)
     created_at = Column(

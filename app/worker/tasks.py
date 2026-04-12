@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import tempfile
+import time
 
 import httpx
 
@@ -37,6 +38,16 @@ def get_model():
     return _model
 
 
+def _update_progress(session, job_id, progress, duration=None):
+    """Update job progress in DB."""
+    job = session.query(Job).filter(Job.job_id == job_id).first()
+    if job:
+        job.progress = min(progress, 100)
+        if duration is not None:
+            job.audio_duration = duration
+        session.commit()
+
+
 @celery.task(bind=True, name="transcribe_audio")
 def transcribe_audio(self, job_id: str) -> dict:
     """Pull audio from MinIO, transcribe with faster-whisper, store result."""
@@ -46,20 +57,27 @@ def transcribe_audio(self, job_id: str) -> dict:
     session = SyncSessionLocal()
 
     try:
-        # 1. Update status to processing
+        # 1. Check if job was cancelled
         job = session.query(Job).filter(Job.job_id == job_id).first()
         if job is None:
             raise ValueError(f"Job {job_id} not found")
+        if job.status == "cancelled":
+            logger.info("Job %s was cancelled, skipping", job_id)
+            return {"job_id": job_id, "status": "cancelled"}
+
         job.status = "processing"
+        job.progress = 0
         session.commit()
 
         # 2. Download audio from MinIO
+        _update_progress(session, job_id, 5)
         audio_ext = os.path.splitext(job.audio_path)[1] or ".wav"
         tmp_audio = os.path.join(tempfile.gettempdir(), f"{job_id}{audio_ext}")
         download_file(settings.MINIO_BUCKET_AUDIO, job.audio_path, tmp_audio)
         logger.info("Downloaded audio for job %s: %s", job_id, job.audio_path)
 
         # 3. Run transcription with word-level timestamps
+        _update_progress(session, job_id, 10)
         model = get_model()
         segments, info = model.transcribe(
             tmp_audio,
@@ -68,18 +86,34 @@ def transcribe_audio(self, job_id: str) -> dict:
             vad_filter=True,
             word_timestamps=True,
         )
+
+        duration = info.duration
+        _update_progress(session, job_id, 15, duration=duration)
         logger.info(
-            "Transcription started for job %s (detected language: %s, probability: %.2f)",
-            job_id,
-            info.language,
-            info.language_probability,
+            "Transcription started for job %s (language: %s, duration: %.1fs)",
+            job_id, info.language, duration,
         )
 
-        # 4. Build structured transcript with word-level timestamps
+        # 4. Build structured transcript with progress updates
         transcript_segments = []
         full_text_parts = []
+        last_progress_update = time.time()
 
         for segment in segments:
+            # Check if cancelled
+            if time.time() - last_progress_update > 2:
+                session.expire_all()
+                job = session.query(Job).filter(Job.job_id == job_id).first()
+                if job and job.status == "cancelled":
+                    logger.info("Job %s cancelled during transcription", job_id)
+                    return {"job_id": job_id, "status": "cancelled"}
+
+                # Update progress: 15-90% maps to transcription progress
+                if duration > 0:
+                    pct = 15 + int((segment.end / duration) * 75)
+                    _update_progress(session, job_id, pct)
+                last_progress_update = time.time()
+
             words = []
             if segment.words:
                 for w in segment.words:
@@ -101,6 +135,8 @@ def transcribe_audio(self, job_id: str) -> dict:
                 "words": words,
             })
 
+        _update_progress(session, job_id, 90)
+
         full_text = "\n".join(full_text_parts)
         transcript_data = {
             "job_id": job_id,
@@ -113,6 +149,7 @@ def transcribe_audio(self, job_id: str) -> dict:
         logger.info("Transcription complete for job %s (%d segments, %d chars)", job_id, len(transcript_segments), len(full_text))
 
         # 5. Write plain text transcript to MinIO
+        _update_progress(session, job_id, 92)
         transcript_key = f"{job_id}.txt"
         tmp_txt = os.path.join(tempfile.gettempdir(), f"{job_id}.txt")
         with open(tmp_txt, "w", encoding="utf-8") as f:
@@ -125,6 +162,7 @@ def transcribe_audio(self, job_id: str) -> dict:
         )
 
         # 6. Write JSON transcript with timestamps to MinIO
+        _update_progress(session, job_id, 95)
         json_key = f"{job_id}.json"
         tmp_json = os.path.join(tempfile.gettempdir(), f"{job_id}.json")
         with open(tmp_json, "w", encoding="utf-8") as f:
@@ -137,9 +175,11 @@ def transcribe_audio(self, job_id: str) -> dict:
         )
 
         # 7. Update job status
+        job = session.query(Job).filter(Job.job_id == job_id).first()
         job.transcript_path = transcript_key
         job.transcript_json_path = json_key
         job.status = "completed"
+        job.progress = 100
         session.commit()
 
         # 8. Fire webhook to n8n

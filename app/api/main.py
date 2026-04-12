@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -5,15 +6,39 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import select, update
 
 from app.api.routes import jobs, payfast, upload
-from app.core.database import async_engine
+from app.core.database import AsyncSessionLocal, async_engine
+from app.core.models import Job
+
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # On startup: reset any stuck "processing" jobs back to "pending"
+    # This handles server crashes / restarts mid-transcription
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            update(Job)
+            .where(Job.status == "processing")
+            .values(status="pending", progress=0, error_message=None)
+        )
+        if result.rowcount > 0:
+            await session.commit()
+            logger.info("Reset %d stuck processing jobs to pending", result.rowcount)
+
+            # Re-queue them
+            from app.worker.celery_app import celery
+
+            rows = await session.execute(select(Job).where(Job.status == "pending"))
+            for job in rows.scalars():
+                celery.send_task("transcribe_audio", args=[str(job.job_id)])
+                logger.info("Re-queued job %s", job.job_id)
+
     yield
     await async_engine.dispose()
 
