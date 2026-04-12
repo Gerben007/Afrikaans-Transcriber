@@ -227,6 +227,103 @@ async def export_training_data(job_id: UUID, db: AsyncSession = Depends(get_db))
     }
 
 
+@router.post("/jobs/{job_id}/publish-training")
+async def publish_training_data(job_id: UUID, db: AsyncSession = Depends(get_db)):
+    """Split audio into per-segment clips and publish to training-data bucket."""
+    import csv
+    import subprocess
+
+    result = await db.execute(select(Job).where(Job.job_id == job_id))
+    job = result.scalar_one_or_none()
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if not job.transcript_json_path:
+        raise HTTPException(status_code=404, detail="Transcript not ready")
+
+    tmp_dir = tempfile.mkdtemp(prefix=f"train_{job_id}_")
+    client = get_minio_client()
+
+    try:
+        # Ensure bucket exists
+        if not client.bucket_exists(settings.MINIO_BUCKET_TRAINING):
+            client.make_bucket(settings.MINIO_BUCKET_TRAINING)
+
+        # Download transcript JSON
+        transcript_path = os.path.join(tmp_dir, "transcript.json")
+        download_file(settings.MINIO_BUCKET_TRANSCRIPTS, job.transcript_json_path, transcript_path)
+        with open(transcript_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        # Download full audio
+        audio_ext = os.path.splitext(job.audio_path)[1] or ".wav"
+        audio_path = os.path.join(tmp_dir, f"full{audio_ext}")
+        download_file(settings.MINIO_BUCKET_AUDIO, job.audio_path, audio_path)
+
+        segments = data.get("segments", [])
+        if not segments:
+            raise HTTPException(status_code=400, detail="No segments to publish")
+
+        # Split audio into per-segment WAV clips and build CSV
+        job_prefix = str(job_id)[:8]
+        csv_rows = []
+
+        for seg in segments:
+            seg_id = seg["id"]
+            start = seg["start"]
+            end = seg["end"]
+            text = seg["text"].strip()
+            if not text:
+                continue
+
+            clip_name = f"{job_prefix}_seg{seg_id:04d}.wav"
+            clip_path = os.path.join(tmp_dir, clip_name)
+
+            # Use ffmpeg to extract segment as 16kHz mono WAV
+            subprocess.run(
+                [
+                    "ffmpeg", "-y", "-i", audio_path,
+                    "-ss", str(start), "-to", str(end),
+                    "-ar", "16000", "-ac", "1",
+                    "-loglevel", "error",
+                    clip_path,
+                ],
+                check=True,
+                capture_output=True,
+            )
+
+            # Upload clip to MinIO
+            minio_key = f"{job_id}/audio/{clip_name}"
+            upload_file(settings.MINIO_BUCKET_TRAINING, minio_key, clip_path, content_type="audio/wav")
+
+            csv_rows.append({"file_name": clip_name, "sentence": text})
+
+        # Write and upload transcripts.csv
+        csv_path = os.path.join(tmp_dir, "transcripts.csv")
+        with open(csv_path, "w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["file_name", "sentence"])
+            writer.writeheader()
+            writer.writerows(csv_rows)
+
+        upload_file(
+            settings.MINIO_BUCKET_TRAINING,
+            f"{job_id}/transcripts.csv",
+            csv_path,
+            content_type="text/csv",
+        )
+
+        return {
+            "status": "published",
+            "segments": len(csv_rows),
+            "bucket": settings.MINIO_BUCKET_TRAINING,
+            "prefix": str(job_id),
+        }
+
+    finally:
+        # Cleanup temp directory
+        import shutil
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
 @router.delete("/jobs/{job_id}")
 async def delete_job(job_id: UUID, db: AsyncSession = Depends(get_db)):
     """Delete a job and its files from MinIO."""

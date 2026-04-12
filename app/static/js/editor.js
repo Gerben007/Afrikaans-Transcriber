@@ -377,6 +377,34 @@
 
     // --- Toolbar ---
     function setupToolbar() {
+        // Publish training data
+        document.getElementById("btn-publish").addEventListener("click", async () => {
+            const btn = document.getElementById("btn-publish");
+            const origText = btn.innerHTML;
+            if (!confirm("Publiseer opleidingsdata? Dit sal die klank in segmente splits en stoor vir opleiding.")) return;
+
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;"></div> Besig...';
+
+            try {
+                // Save current edits first
+                await saveNow();
+
+                const res = await fetch(`/api/v1/jobs/${JOB_ID}/publish-training`, { method: "POST" });
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || "Publish failed");
+                }
+                const data = await res.json();
+                alert(`Opleidingsdata gepubliseer!\n\n${data.segments} segmente gestoor in bucket "${data.bucket}/${data.prefix}"`);
+            } catch (err) {
+                alert("Kon nie publiseer nie: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = origText;
+            }
+        });
+
         btnExport.addEventListener("click", async () => {
             try {
                 const res = await fetch(`/api/v1/jobs/${JOB_ID}/export-training`);

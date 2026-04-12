@@ -68,31 +68,52 @@ def load_common_voice(language: str, hf_token: str = None) -> DatasetDict:
     return cv
 
 
+def _load_csv_dir(data_dir: Path) -> tuple:
+    """Load from a single directory with transcripts.csv + audio/ subfolder."""
+    audio_files = []
+    sentences = []
+    csv_path = data_dir / "transcripts.csv"
+    if not csv_path.exists():
+        return audio_files, sentences
+
+    audio_dir = data_dir / "audio"
+    with open(csv_path, encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            audio_path = audio_dir / row["file_name"]
+            if audio_path.exists():
+                audio_files.append(str(audio_path))
+                sentences.append(row["sentence"].strip())
+    return audio_files, sentences
+
+
 def load_custom_data(data_dir: str) -> Dataset:
     """
     Load custom audio+transcript pairs from a directory.
 
-    Supports two formats:
+    Supports:
     1. CSV manifest: data_dir/transcripts.csv + data_dir/audio/*.wav
-       CSV columns: file_name, sentence
-    2. Paired files: data_dir/001.wav + data_dir/001.txt
+    2. Published training data from UI: data_dir/<job_id>/transcripts.csv + data_dir/<job_id>/audio/*.wav
+    3. Paired files: data_dir/001.wav + data_dir/001.txt
     """
     data_dir = Path(data_dir)
-    csv_path = data_dir / "transcripts.csv"
     audio_files = []
     sentences = []
 
-    if csv_path.exists():
-        audio_dir = data_dir / "audio"
-        with open(csv_path, encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                audio_path = audio_dir / row["file_name"]
-                if audio_path.exists():
-                    audio_files.append(str(audio_path))
-                    sentences.append(row["sentence"].strip())
-    else:
-        # Paired files: 001.wav + 001.txt
+    # Check top-level CSV
+    top_files, top_sents = _load_csv_dir(data_dir)
+    audio_files.extend(top_files)
+    sentences.extend(top_sents)
+
+    # Check subdirectories (published training data from UI)
+    for subdir in sorted(data_dir.iterdir()):
+        if subdir.is_dir() and (subdir / "transcripts.csv").exists():
+            sub_files, sub_sents = _load_csv_dir(subdir)
+            audio_files.extend(sub_files)
+            sentences.extend(sub_sents)
+
+    # Fallback: paired files in top-level
+    if not audio_files:
         audio_exts = {".wav", ".mp3", ".flac", ".ogg", ".m4a"}
         for audio_path in sorted(data_dir.iterdir()):
             if audio_path.suffix.lower() in audio_exts:

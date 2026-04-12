@@ -155,6 +155,17 @@
     border-color: #cbd5e1;
 }
 
+.btn-success {
+    color: var(--success);
+    border-color: #bbf7d0;
+}
+
+.btn-success:hover {
+    background: #f0fdf4;
+    color: var(--success);
+    border-color: var(--success);
+}
+
 .btn-danger {
     color: var(--danger);
     border-color: #fecaca;

@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     MINIO_SECURE: bool = False
     MINIO_BUCKET_AUDIO: str = "audio-inbox"
     MINIO_BUCKET_TRANSCRIPTS: str = "transcripts-out"
+    MINIO_BUCKET_TRAINING: str = "training-data"
 
     # PayFast
     PAYFAST_PASSPHRASE: str = ""

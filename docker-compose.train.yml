@@ -1,7 +1,30 @@
-# Training compose file — run on your laptop, not on the server.
-# Usage: docker compose -f docker-compose.train.yml run --rm train
+# Training compose file — run on your server alongside the main stack.
+# Usage:
+#   1. Sync training data from MinIO:  docker compose -f docker-compose.train.yml run --rm sync-training
+#   2. Train:                          docker compose -f docker-compose.train.yml run --rm train
+#   3. Convert:                        docker compose -f docker-compose.train.yml run --rm convert
+#   4. Evaluate:                       docker compose -f docker-compose.train.yml run --rm evaluate
+#   5. Restart worker:                 docker compose restart worker
 
 services:
+  sync-training:
+    image: minio/mc:latest
+    volumes:
+      - ${CUSTOM_DATA_PATH:-./training/custom_data}:/data
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} &&
+      echo 'Syncing training data from MinIO...' &&
+      mc mirror --overwrite local/training-data /data &&
+      echo 'Done. Downloaded to /data:' &&
+      ls -la /data/
+      "
+    networks:
+      - afrikaans-transcriber_default
+
   train:
     build:
       context: .
@@ -62,3 +85,7 @@ services:
       - HF_TOKEN=${HF_TOKEN:-}
       - CV_LANGUAGE=${CV_LANGUAGE:-af}
     command: ["python", "training/evaluate.py", "--model_dir", "/workspace/output"]
+
+networks:
+  afrikaans-transcriber_default:
+    external: true
