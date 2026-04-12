@@ -1,0 +1,16 @@
+FROM python:3.11-slim-bookworm
+
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements/base.txt requirements/worker.txt ./requirements/
+RUN pip install --no-cache-dir -r requirements/worker.txt
+
+COPY app/ ./app/
+
+CMD ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=info", "--concurrency=1", "--pool=solo"]

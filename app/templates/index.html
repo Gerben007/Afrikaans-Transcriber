@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="af">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Afrikaans Transcription Service</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Afrikaans Transkripsie</h1>
+            <p class="subtitle">Upload 'n klank- of videol&ecirc;er om Afrikaanse transkripsie te begin</p>
+        </header>
+
+        <!-- Upload Section -->
+        <section id="upload-section" class="card">
+            <form id="upload-form">
+                <div id="drop-zone" class="drop-zone">
+                    <div class="drop-zone-content">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        <p>Sleep l&ecirc;er hierheen of <span class="link">blaai</span></p>
+                        <p class="hint">WAV, MP3, FLAC, M4A, OGG, MP4, WEBM (maks 500 MB)</p>
+                    </div>
+                    <input type="file" id="file-input" accept=".wav,.mp3,.flac,.m4a,.ogg,.mp4,.webm" hidden>
+                </div>
+                <div id="file-info" class="file-info hidden">
+                    <span id="file-name"></span>
+                    <button type="button" id="clear-file" class="btn-clear">&times;</button>
+                </div>
+                <div class="form-group">
+                    <label for="email">E-posadres</label>
+                    <input type="email" id="email" placeholder="jou@epos.co.za" required>
+                </div>
+                <div id="progress-bar-container" class="progress-container hidden">
+                    <div id="progress-bar" class="progress-bar"></div>
+                    <span id="progress-text">0%</span>
+                </div>
+                <button type="submit" id="submit-btn" class="btn-primary" disabled>
+                    Laai op & Transkribeer
+                </button>
+            </form>
+        </section>
+
+        <!-- Job Status Section -->
+        <section id="status-section" class="card hidden">
+            <h2>Werk Status</h2>
+            <div id="job-status" class="status-display">
+                <div class="status-row">
+                    <span class="label">Werk ID:</span>
+                    <code id="job-id-display"></code>
+                </div>
+                <div class="status-row">
+                    <span class="label">Status:</span>
+                    <span id="job-status-badge" class="badge"></span>
+                </div>
+                <div id="error-row" class="status-row hidden">
+                    <span class="label">Fout:</span>
+                    <span id="job-error" class="error-text"></span>
+                </div>
+            </div>
+            <div id="transcript-section" class="hidden">
+                <h3>Transkripsie</h3>
+                <pre id="transcript-text" class="transcript-box"></pre>
+                <a id="download-link" class="btn-secondary" href="#" target="_blank">Laai transkripsie af</a>
+            </div>
+            <button id="new-upload-btn" class="btn-outline">Nuwe oplaai</button>
+        </section>
+
+        <!-- Job History -->
+        <section id="history-section" class="card hidden">
+            <h2>Onlangse Werke</h2>
+            <ul id="history-list" class="history-list"></ul>
+        </section>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

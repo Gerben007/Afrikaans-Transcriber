@@ -1,0 +1,22 @@
+# Local development overrides — applied automatically by `docker compose up`
+# Caddy is disabled (production profile only). Ports exposed directly.
+
+services:
+  api:
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=true
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  minio:
+    ports:
+      - "9000:9000"
+      - "9001:9001"

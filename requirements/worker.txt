@@ -1,0 +1,4 @@
+-r base.txt
+celery[redis]>=5.3,<6
+faster-whisper>=1.0,<2
+psycopg2-binary>=2.9,<3
