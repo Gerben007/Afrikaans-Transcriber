@@ -2,6 +2,7 @@
 fastapi>=0.109,<1
 uvicorn[standard]>=0.27,<1
 asyncpg>=0.29,<1
+psycopg2-binary>=2.9,<3
 python-multipart>=0.0.6,<1
 celery[redis]>=5.3,<6
 alembic>=1.13,<2
