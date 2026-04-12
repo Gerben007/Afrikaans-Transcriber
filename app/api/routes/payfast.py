@@ -3,7 +3,6 @@ import logging
 import urllib.parse
 
 from fastapi import APIRouter, HTTPException, Request
-from sqlalchemy import select
 
 from app.core.config import settings
 from app.core.database import SyncSessionLocal
@@ -64,10 +63,10 @@ async def payfast_itn(request: Request):
                 job.payment_ref = data.get("pf_payment_id", "")
                 if job.status == "pending":
                     session.commit()
-                    # Dispatch transcription
-                    from app.worker.tasks import transcribe_audio
+                    # Dispatch transcription by name (avoids importing worker code)
+                    from app.worker.celery_app import celery
 
-                    transcribe_audio.delay(str(job.job_id))
+                    celery.send_task("transcribe_audio", args=[str(job.job_id)])
                 else:
                     session.commit()
             else:

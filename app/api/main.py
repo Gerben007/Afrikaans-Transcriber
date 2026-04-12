@@ -36,12 +36,12 @@ app.include_router(payfast.router, prefix="/api/v1", tags=["payfast"])
 
 @app.get("/")
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="index.html")
 
 
 @app.get("/editor/{job_id}")
 async def editor(request: Request, job_id: str):
-    return templates.TemplateResponse("editor.html", {"request": request, "job_id": job_id})
+    return templates.TemplateResponse(request=request, name="editor.html", context={"job_id": job_id})
 
 
 @app.get("/health")

@@ -68,9 +68,9 @@ async def upload_audio(
     db.add(job)
     await db.commit()
 
-    # Dispatch Celery task
-    from app.worker.tasks import transcribe_audio
+    # Dispatch Celery task by name (avoids importing worker code which needs faster-whisper)
+    from app.worker.celery_app import celery
 
-    transcribe_audio.delay(str(job_id))
+    celery.send_task("transcribe_audio", args=[str(job_id)])
 
     return UploadResponse(job_id=job_id, status="pending")
