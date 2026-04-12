@@ -13,7 +13,7 @@ from app.core.storage import get_minio_client
 
 router = APIRouter()
 
-ALLOWED_EXTENSIONS = {".wav", ".mp3", ".flac", ".m4a", ".ogg", ".mp4", ".webm"}
+ALLOWED_EXTENSIONS = {".wav", ".mp3", ".flac", ".m4a", ".ogg", ".opus", ".mp4", ".webm", ".3gp", ".aac"}
 MAX_FILE_SIZE = 500 * 1024 * 1024  # 500 MB
 
 
