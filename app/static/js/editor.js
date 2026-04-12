@@ -199,8 +199,23 @@
             speaker.spellcheck = false;
             speaker.textContent = seg.speaker || "Spreker 1";
             speaker.addEventListener("blur", () => {
-                segments[idx].speaker = speaker.textContent.trim() || "Spreker 1";
-                scheduleSave();
+                const oldName = seg.speaker || "Spreker 1";
+                const newName = speaker.textContent.trim() || "Spreker 1";
+                if (newName !== oldName) {
+                    // Update ALL segments with the same old speaker name
+                    segments.forEach((s, i) => {
+                        if (s.speaker === oldName) {
+                            s.speaker = newName;
+                        }
+                    });
+                    // Re-render all speaker labels
+                    container.querySelectorAll(".segment-speaker").forEach(el => {
+                        if (el.textContent.trim() === oldName) {
+                            el.textContent = newName;
+                        }
+                    });
+                    scheduleSave();
+                }
             });
             body.appendChild(speaker);
 
