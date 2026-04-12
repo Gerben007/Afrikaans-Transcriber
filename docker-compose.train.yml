@@ -1,0 +1,64 @@
+# Training compose file — run on your laptop, not on the server.
+# Usage: docker compose -f docker-compose.train.yml run --rm train
+
+services:
+  train:
+    build:
+      context: .
+      dockerfile: training/Dockerfile.train
+      args:
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
+    volumes:
+      - ./training:/workspace/training
+      - ${HF_CACHE_PATH:-./hf_cache}:/workspace/hf_cache
+      - ${OUTPUT_PATH:-./training/output}:/workspace/output
+      - ${CUSTOM_DATA_PATH:-./training/custom_data}:/workspace/custom_data
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+      - WHISPER_MODEL=${WHISPER_MODEL:-openai/whisper-small}
+      - CV_LANGUAGE=${CV_LANGUAGE:-af}
+      - OUTPUT_DIR=/workspace/output
+      - CUSTOM_DATA_DIR=/workspace/custom_data
+      - NUM_TRAIN_EPOCHS=${NUM_TRAIN_EPOCHS:-3}
+      - PER_DEVICE_TRAIN_BATCH_SIZE=${PER_DEVICE_TRAIN_BATCH_SIZE:-4}
+      - LEARNING_RATE=${LEARNING_RATE:-1e-5}
+    # Uncomment for GPU training:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    command: ["python", "training/train.py"]
+
+  convert:
+    build:
+      context: .
+      dockerfile: training/Dockerfile.train
+      args:
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
+    volumes:
+      - ${OUTPUT_PATH:-./training/output}:/workspace/output
+      - ${CONVERTED_MODEL_PATH:-./models/whisper}:/workspace/converted
+    environment:
+      - QUANTIZATION=${QUANTIZATION:-int8}
+    command: >
+      python training/convert.py
+        --model_dir /workspace/output
+        --output_dir /workspace/converted
+        --quantization ${QUANTIZATION:-int8}
+
+  evaluate:
+    build:
+      context: .
+      dockerfile: training/Dockerfile.train
+      args:
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
+    volumes:
+      - ${OUTPUT_PATH:-./training/output}:/workspace/output
+      - ${HF_CACHE_PATH:-./hf_cache}:/workspace/hf_cache
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+      - CV_LANGUAGE=${CV_LANGUAGE:-af}
+    command: ["python", "training/evaluate.py", "--model_dir", "/workspace/output"]

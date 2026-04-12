@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="af">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transkripsie Redigeerder</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/editor.css">
+</head>
+<body>
+    <div class="app-shell">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="sidebar-logo">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="23"/>
+                    <line x1="8" y1="23" x2="16" y2="23"/>
+                </svg>
+            </div>
+            <a href="/" class="sidebar-icon" title="Tuis">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+            </a>
+            <a href="#" class="sidebar-icon active" title="Redigeerder">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+            </a>
+        </nav>
+
+        <!-- Editor Content -->
+        <main class="editor-main">
+            <!-- Loading State -->
+            <div id="editor-loading" class="editor-loading">
+                <div class="spinner"></div>
+                <p>Transkripsie word gelaai...</p>
+            </div>
+
+            <!-- Processing State -->
+            <div id="editor-processing" class="editor-processing hidden">
+                <div class="processing-card">
+                    <div class="spinner"></div>
+                    <h2>Transkripsie word verwerk...</h2>
+                    <p id="processing-status">Wag vir verwerking</p>
+                </div>
+            </div>
+
+            <!-- Editor -->
+            <div id="editor-content" class="editor-content hidden">
+                <!-- Toolbar -->
+                <div class="editor-toolbar">
+                    <div class="toolbar-left">
+                        <a href="/" class="btn-back">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="19" y1="12" x2="5" y2="12"/>
+                                <polyline points="12 19 5 12 12 5"/>
+                            </svg>
+                            Terug
+                        </a>
+                        <div id="save-indicator" class="save-indicator">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6L9 17l-5-5"/>
+                            </svg>
+                            <span>Gestoor</span>
+                        </div>
+                    </div>
+                    <div class="toolbar-right">
+                        <button id="btn-export" class="btn-toolbar" title="Eksporteer as opleidingsdata">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Eksporteer
+                        </button>
+                        <button id="btn-download-txt" class="btn-toolbar" title="Laai teks af">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                            </svg>
+                            .txt
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Transcript Area -->
+                <div class="editor-body">
+                    <div id="transcript-container" class="transcript-container">
+                        <!-- Segments rendered by JS -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Audio Player (fixed bottom bar) -->
+    <div id="player-bar" class="player-bar hidden">
+        <audio id="audio-el" preload="auto"></audio>
+        <div class="player-controls">
+            <button id="btn-rw" class="player-btn" title="5s terug">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="1 4 1 10 7 10"/>
+                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+                </svg>
+                <span class="skip-label">5</span>
+            </button>
+            <button id="btn-play" class="player-btn play-btn" title="Speel / Pouseer">
+                <svg id="icon-play" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                <svg id="icon-pause" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="hidden">
+                    <rect x="6" y="4" width="4" height="16"/>
+                    <rect x="14" y="4" width="4" height="16"/>
+                </svg>
+            </button>
+            <button id="btn-ff" class="player-btn" title="5s vorentoe">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="23 4 23 10 17 10"/>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                </svg>
+                <span class="skip-label">5</span>
+            </button>
+        </div>
+        <div class="player-time">
+            <span id="time-current">00:00:00.000</span>
+        </div>
+        <div class="player-seek">
+            <input type="range" id="seek-bar" min="0" max="100" value="0" step="0.1">
+        </div>
+        <div class="player-speed">
+            <button id="btn-speed" class="speed-btn">1.0x</button>
+        </div>
+    </div>
+
+    <script>
+        window.__JOB_ID__ = "{{ job_id }}";
+    </script>
+    <script src="/static/js/editor.js"></script>
+</body>
+</html>

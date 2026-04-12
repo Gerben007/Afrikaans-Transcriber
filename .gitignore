@@ -10,3 +10,7 @@ models/
 .pytest_cache/
 *.log
 .DS_Store
+training/output/
+training/custom_data/*
+!training/custom_data/.gitkeep
+hf_cache/

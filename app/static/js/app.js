@@ -4,36 +4,25 @@
     const POLL_INTERVAL = 3000;
     const HISTORY_KEY = "transcriber_jobs";
 
-    // DOM elements
     const dropZone = document.getElementById("drop-zone");
     const fileInput = document.getElementById("file-input");
-    const fileInfo = document.getElementById("file-info");
+    const fileSelected = document.getElementById("file-selected");
     const fileName = document.getElementById("file-name");
+    const fileSize = document.getElementById("file-size");
     const clearFileBtn = document.getElementById("clear-file");
     const emailInput = document.getElementById("email");
     const form = document.getElementById("upload-form");
     const submitBtn = document.getElementById("submit-btn");
-    const progressContainer = document.getElementById("progress-bar-container");
-    const progressBar = document.getElementById("progress-bar");
-    const progressText = document.getElementById("progress-text");
-    const uploadSection = document.getElementById("upload-section");
-    const statusSection = document.getElementById("status-section");
-    const jobIdDisplay = document.getElementById("job-id-display");
-    const jobStatusBadge = document.getElementById("job-status-badge");
-    const errorRow = document.getElementById("error-row");
-    const jobError = document.getElementById("job-error");
-    const transcriptSection = document.getElementById("transcript-section");
-    const transcriptText = document.getElementById("transcript-text");
-    const downloadLink = document.getElementById("download-link");
-    const newUploadBtn = document.getElementById("new-upload-btn");
-    const historySection = document.getElementById("history-section");
-    const historyList = document.getElementById("history-list");
+    const progressWrap = document.getElementById("progress-wrap");
+    const progressFill = document.getElementById("progress-fill");
+    const progressLabel = document.getElementById("progress-label");
+    const jobsSection = document.getElementById("jobs-section");
+    const jobsList = document.getElementById("jobs-list");
 
     let selectedFile = null;
-    let pollTimer = null;
+    let pollTimers = {};
 
     // --- File Selection ---
-
     dropZone.addEventListener("click", () => fileInput.click());
 
     dropZone.addEventListener("dragover", (e) => {
@@ -41,32 +30,26 @@
         dropZone.classList.add("dragover");
     });
 
-    dropZone.addEventListener("dragleave", () => {
-        dropZone.classList.remove("dragover");
-    });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
 
     dropZone.addEventListener("drop", (e) => {
         e.preventDefault();
         dropZone.classList.remove("dragover");
-        if (e.dataTransfer.files.length > 0) {
-            setFile(e.dataTransfer.files[0]);
-        }
+        if (e.dataTransfer.files.length > 0) setFile(e.dataTransfer.files[0]);
     });
 
     fileInput.addEventListener("change", () => {
-        if (fileInput.files.length > 0) {
-            setFile(fileInput.files[0]);
-        }
+        if (fileInput.files.length > 0) setFile(fileInput.files[0]);
     });
 
-    clearFileBtn.addEventListener("click", () => {
-        clearFile();
-    });
+    clearFileBtn.addEventListener("click", clearFile);
+    emailInput.addEventListener("input", updateSubmitState);
 
     function setFile(file) {
         selectedFile = file;
-        fileName.textContent = `${file.name} (${formatSize(file.size)})`;
-        fileInfo.classList.remove("hidden");
+        fileName.textContent = file.name;
+        fileSize.textContent = formatSize(file.size);
+        fileSelected.classList.remove("hidden");
         dropZone.classList.add("hidden");
         updateSubmitState();
     }
@@ -74,7 +57,7 @@
     function clearFile() {
         selectedFile = null;
         fileInput.value = "";
-        fileInfo.classList.add("hidden");
+        fileSelected.classList.add("hidden");
         dropZone.classList.remove("hidden");
         updateSubmitState();
     }
@@ -83,10 +66,7 @@
         submitBtn.disabled = !(selectedFile && emailInput.value.includes("@"));
     }
 
-    emailInput.addEventListener("input", updateSubmitState);
-
     // --- Upload ---
-
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
         if (!selectedFile || !emailInput.value) return;
@@ -96,47 +76,50 @@
         formData.append("client_email", emailInput.value);
 
         submitBtn.disabled = true;
-        submitBtn.textContent = "Laai op...";
-        progressContainer.classList.remove("hidden");
+        submitBtn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;"></div> Laai op...';
+        progressWrap.classList.remove("hidden");
 
         try {
-            const response = await uploadWithProgress(
-                "/api/v1/upload",
-                formData,
-                (pct) => {
-                    progressBar.style.setProperty("--progress", pct + "%");
-                    progressText.textContent = pct + "%";
-                }
-            );
+            const response = await uploadWithProgress("/api/v1/upload", formData, (pct) => {
+                progressFill.style.width = pct + "%";
+                progressLabel.textContent = pct + "%";
+            });
 
             if (!response.ok) {
                 const err = await response.json();
-                throw new Error(err.detail || "Upload failed");
+                throw new Error(err.detail || "Upload het misluk");
             }
 
             const data = await response.json();
             saveToHistory(data.job_id, emailInput.value);
-            showStatus(data.job_id);
+            // Redirect to editor
+            window.location.href = `/editor/${data.job_id}`;
         } catch (err) {
             alert("Fout: " + err.message);
-            submitBtn.disabled = false;
-            submitBtn.textContent = "Laai op & Transkribeer";
-            progressContainer.classList.add("hidden");
+            resetForm();
         }
     });
+
+    function resetForm() {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = `
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            Laai op & Transkribeer`;
+        progressWrap.classList.add("hidden");
+        progressFill.style.width = "0%";
+        progressLabel.textContent = "0%";
+    }
 
     function uploadWithProgress(url, formData, onProgress) {
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open("POST", url);
-
             xhr.upload.addEventListener("progress", (e) => {
-                if (e.lengthComputable) {
-                    const pct = Math.round((e.loaded / e.total) * 100);
-                    onProgress(pct);
-                }
+                if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
             });
-
             xhr.addEventListener("load", () => {
                 resolve({
                     ok: xhr.status >= 200 && xhr.status < 300,
@@ -144,120 +127,80 @@
                     json: () => Promise.resolve(JSON.parse(xhr.responseText)),
                 });
             });
-
-            xhr.addEventListener("error", () => reject(new Error("Network error")));
+            xhr.addEventListener("error", () => reject(new Error("Netwerk fout")));
             xhr.send(formData);
         });
     }
 
-    // --- Job Status ---
-
-    function showStatus(jobId) {
-        uploadSection.classList.add("hidden");
-        statusSection.classList.remove("hidden");
-        transcriptSection.classList.add("hidden");
-        errorRow.classList.add("hidden");
-        jobIdDisplay.textContent = jobId;
-        jobStatusBadge.textContent = "pending";
-        jobStatusBadge.className = "badge pending";
-        pollJob(jobId);
-    }
-
-    function pollJob(jobId) {
-        if (pollTimer) clearInterval(pollTimer);
-
-        const check = async () => {
-            try {
-                const res = await fetch(`/api/v1/jobs/${jobId}`);
-                if (!res.ok) return;
-                const data = await res.json();
-
-                jobStatusBadge.textContent = data.status;
-                jobStatusBadge.className = `badge ${data.status}`;
-
-                if (data.status === "failed") {
-                    clearInterval(pollTimer);
-                    errorRow.classList.remove("hidden");
-                    jobError.textContent = data.error_message || "Unknown error";
-                }
-
-                if (data.status === "completed") {
-                    clearInterval(pollTimer);
-                    if (data.transcript_url) {
-                        downloadLink.href = data.transcript_url;
-                        // Fetch and display transcript text
-                        try {
-                            const txtRes = await fetch(data.transcript_url);
-                            if (txtRes.ok) {
-                                transcriptText.textContent = await txtRes.text();
-                            }
-                        } catch {
-                            transcriptText.textContent = "(Could not load transcript preview)";
-                        }
-                        transcriptSection.classList.remove("hidden");
-                    }
-                }
-            } catch {
-                // Silently retry on network errors
-            }
-        };
-
-        check();
-        pollTimer = setInterval(check, POLL_INTERVAL);
-    }
-
-    // --- New Upload ---
-
-    newUploadBtn.addEventListener("click", () => {
-        if (pollTimer) clearInterval(pollTimer);
-        statusSection.classList.add("hidden");
-        uploadSection.classList.remove("hidden");
-        clearFile();
-        submitBtn.textContent = "Laai op & Transkribeer";
-        submitBtn.disabled = true;
-        progressContainer.classList.add("hidden");
-        progressBar.style.setProperty("--progress", "0%");
-        progressText.textContent = "0%";
-        renderHistory();
-    });
-
-    // --- History (localStorage) ---
-
+    // --- History ---
     function saveToHistory(jobId, email) {
         const history = getHistory();
-        history.unshift({ job_id: jobId, email: email, date: new Date().toISOString() });
+        history.unshift({ job_id: jobId, email, date: new Date().toISOString(), status: "pending" });
         if (history.length > 20) history.pop();
         localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
     }
 
     function getHistory() {
-        try {
-            return JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
-        } catch {
-            return [];
-        }
+        try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; }
+        catch { return []; }
     }
 
     function renderHistory() {
         const history = getHistory();
         if (history.length === 0) {
-            historySection.classList.add("hidden");
+            jobsSection.classList.add("hidden");
             return;
         }
-        historySection.classList.remove("hidden");
-        historyList.innerHTML = "";
+        jobsSection.classList.remove("hidden");
+        jobsList.innerHTML = "";
+
         history.forEach((item) => {
-            const li = document.createElement("li");
-            li.innerHTML = `
-                <code>${item.job_id.substring(0, 8)}...</code>
-                <span>${formatDate(item.date)}</span>
+            const card = document.createElement("a");
+            card.href = `/editor/${item.job_id}`;
+            card.className = "job-card";
+            card.innerHTML = `
+                <div class="job-card-left">
+                    <code>${item.job_id.substring(0, 8)}...</code>
+                    <span>${formatDate(item.date)}</span>
+                </div>
+                <span class="badge badge-${item.status || 'pending'}">${item.status || 'pending'}</span>
             `;
-            li.addEventListener("click", () => showStatus(item.job_id));
-            historyList.appendChild(li);
+            jobsList.appendChild(card);
+
+            // Poll for status updates
+            if (item.status === "pending" || item.status === "processing") {
+                pollJobStatus(item.job_id);
+            }
         });
     }
 
-    // --- Utilities ---
+    async function pollJobStatus(jobId) {
+        if (pollTimers[jobId]) return;
+        const check = async () => {
+            try {
+                const res = await fetch(`/api/v1/jobs/${jobId}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                updateHistoryStatus(jobId, data.status);
+                if (data.status === "completed" || data.status === "failed") {
+                    clearInterval(pollTimers[jobId]);
+                    delete pollTimers[jobId];
+                    renderHistory();
+                }
+            } catch { /* retry */ }
+        };
+        check();
+        pollTimers[jobId] = setInterval(check, POLL_INTERVAL);
+    }
+
+    function updateHistoryStatus(jobId, status) {
+        const history = getHistory();
+        const item = history.find(h => h.job_id === jobId);
+        if (item) {
+            item.status = status;
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+        }
+    }
 
     function formatSize(bytes) {
         if (bytes < 1024) return bytes + " B";
@@ -266,15 +209,10 @@
     }
 
     function formatDate(iso) {
-        const d = new Date(iso);
-        return d.toLocaleDateString("af-ZA", {
-            day: "numeric",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit",
+        return new Date(iso).toLocaleDateString("af-ZA", {
+            day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
         });
     }
 
-    // Init
     renderHistory();
 })();

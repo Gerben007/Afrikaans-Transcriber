@@ -39,6 +39,11 @@ async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
+@app.get("/editor/{job_id}")
+async def editor(request: Request, job_id: str):
+    return templates.TemplateResponse("editor.html", {"request": request, "job_id": job_id})
+
+
 @app.get("/health")
 async def health():
     return JSONResponse({"status": "ok"})

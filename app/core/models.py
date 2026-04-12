@@ -17,6 +17,7 @@ class Job(Base):
     client_email = Column(String(255), nullable=False)
     audio_path = Column(Text, nullable=False)
     transcript_path = Column(Text, nullable=True)
+    transcript_json_path = Column(Text, nullable=True)
     status = Column(String(50), nullable=False, default="pending")
     payment_ref = Column(String(255), nullable=True)
     error_message = Column(Text, nullable=True)

@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import tempfile
@@ -41,6 +42,7 @@ def transcribe_audio(self, job_id: str) -> dict:
     """Pull audio from MinIO, transcribe with faster-whisper, store result."""
     tmp_audio = None
     tmp_txt = None
+    tmp_json = None
     session = SyncSessionLocal()
 
     try:
@@ -57,13 +59,14 @@ def transcribe_audio(self, job_id: str) -> dict:
         download_file(settings.MINIO_BUCKET_AUDIO, job.audio_path, tmp_audio)
         logger.info("Downloaded audio for job %s: %s", job_id, job.audio_path)
 
-        # 3. Run transcription
+        # 3. Run transcription with word-level timestamps
         model = get_model()
         segments, info = model.transcribe(
             tmp_audio,
             language="af",
             beam_size=5,
             vad_filter=True,
+            word_timestamps=True,
         )
         logger.info(
             "Transcription started for job %s (detected language: %s, probability: %.2f)",
@@ -72,10 +75,44 @@ def transcribe_audio(self, job_id: str) -> dict:
             info.language_probability,
         )
 
-        full_text = "\n".join(segment.text.strip() for segment in segments)
-        logger.info("Transcription complete for job %s (%d chars)", job_id, len(full_text))
+        # 4. Build structured transcript with word-level timestamps
+        transcript_segments = []
+        full_text_parts = []
 
-        # 4. Write transcript to MinIO
+        for segment in segments:
+            words = []
+            if segment.words:
+                for w in segment.words:
+                    words.append({
+                        "word": w.word,
+                        "start": round(w.start, 3),
+                        "end": round(w.end, 3),
+                        "probability": round(w.probability, 3),
+                    })
+
+            seg_text = segment.text.strip()
+            full_text_parts.append(seg_text)
+            transcript_segments.append({
+                "id": segment.id,
+                "start": round(segment.start, 3),
+                "end": round(segment.end, 3),
+                "text": seg_text,
+                "speaker": "Spreker 1",
+                "words": words,
+            })
+
+        full_text = "\n".join(full_text_parts)
+        transcript_data = {
+            "job_id": job_id,
+            "language": info.language,
+            "language_probability": round(info.language_probability, 3),
+            "duration": round(info.duration, 3),
+            "segments": transcript_segments,
+        }
+
+        logger.info("Transcription complete for job %s (%d segments, %d chars)", job_id, len(transcript_segments), len(full_text))
+
+        # 5. Write plain text transcript to MinIO
         transcript_key = f"{job_id}.txt"
         tmp_txt = os.path.join(tempfile.gettempdir(), f"{job_id}.txt")
         with open(tmp_txt, "w", encoding="utf-8") as f:
@@ -87,12 +124,25 @@ def transcribe_audio(self, job_id: str) -> dict:
             content_type="text/plain; charset=utf-8",
         )
 
-        # 5. Update job status
+        # 6. Write JSON transcript with timestamps to MinIO
+        json_key = f"{job_id}.json"
+        tmp_json = os.path.join(tempfile.gettempdir(), f"{job_id}.json")
+        with open(tmp_json, "w", encoding="utf-8") as f:
+            json.dump(transcript_data, f, ensure_ascii=False, indent=2)
+        upload_file(
+            settings.MINIO_BUCKET_TRANSCRIPTS,
+            json_key,
+            tmp_json,
+            content_type="application/json",
+        )
+
+        # 7. Update job status
         job.transcript_path = transcript_key
+        job.transcript_json_path = json_key
         job.status = "completed"
         session.commit()
 
-        # 6. Fire webhook to n8n
+        # 8. Fire webhook to n8n
         if settings.N8N_WEBHOOK_URL:
             try:
                 httpx.post(
@@ -125,7 +175,7 @@ def transcribe_audio(self, job_id: str) -> dict:
 
     finally:
         session.close()
-        for path in (tmp_audio, tmp_txt):
+        for path in (tmp_audio, tmp_txt, tmp_json):
             if path and os.path.exists(path):
                 try:
                     os.remove(path)
