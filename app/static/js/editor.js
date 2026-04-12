@@ -65,8 +65,7 @@
         await loadEditor();
     }
 
-    let progressStartTime = null;
-    let progressStartPct = null;
+    let progressSamples = []; // {time, pct} pairs for rolling ETA
 
     function updateProcessingUI(data) {
         const pct = data.progress || 0;
@@ -86,30 +85,48 @@
         if (fillEl) fillEl.style.width = pct + "%";
         if (pctEl) pctEl.textContent = pct + "%";
 
-        // ETA calculation
-        if (pct > 5 && etaEl) {
-            if (!progressStartTime || !progressStartPct) {
-                progressStartTime = Date.now();
-                progressStartPct = pct;
-            }
-            const elapsed = (Date.now() - progressStartTime) / 1000;
-            const pctDone = pct - progressStartPct;
-            if (pctDone > 0 && elapsed > 5) {
-                const secsPerPct = elapsed / pctDone;
-                const remaining = Math.round(secsPerPct * (100 - pct));
-                if (remaining > 0) {
-                    const mins = Math.floor(remaining / 60);
-                    const secs = remaining % 60;
-                    etaEl.textContent = `Geskat: ${mins > 0 ? mins + " min " : ""}${secs}s oor`;
-                }
-            }
+        // Track progress samples for rolling ETA
+        if (pct > 10) {
+            const now = Date.now();
+            progressSamples.push({ time: now, pct });
+            // Keep last 20 samples (roughly last 60 seconds of data)
+            if (progressSamples.length > 20) progressSamples.shift();
         }
 
-        // Show duration info
-        if (duration && etaEl && pct <= 5) {
-            const mins = Math.floor(duration / 60);
-            const secs = Math.floor(duration % 60);
-            etaEl.textContent = `Klanklengte: ${mins}:${String(secs).padStart(2, "0")}`;
+        // ETA calculation using rolling average
+        if (etaEl && progressSamples.length >= 2) {
+            const oldest = progressSamples[0];
+            const newest = progressSamples[progressSamples.length - 1];
+            const elapsedSec = (newest.time - oldest.time) / 1000;
+            const pctDone = newest.pct - oldest.pct;
+
+            if (pctDone > 0 && elapsedSec > 3) {
+                const secsPerPct = elapsedSec / pctDone;
+                const remaining = Math.round(secsPerPct * (100 - pct));
+
+                if (remaining > 3600) {
+                    const h = Math.floor(remaining / 3600);
+                    const m = Math.floor((remaining % 3600) / 60);
+                    etaEl.textContent = `Geskat: ${h}u ${m} min oor`;
+                } else if (remaining > 60) {
+                    const m = Math.floor(remaining / 60);
+                    const s = remaining % 60;
+                    etaEl.textContent = `Geskat: ${m} min ${s}s oor`;
+                } else {
+                    etaEl.textContent = `Geskat: ${remaining}s oor`;
+                }
+
+                // Also show audio duration context
+                if (duration) {
+                    const dMins = Math.floor(duration / 60);
+                    const dSecs = Math.floor(duration % 60);
+                    etaEl.textContent += ` (klank: ${dMins}:${String(dSecs).padStart(2, "0")})`;
+                }
+            }
+        } else if (etaEl && duration && pct <= 10) {
+            const dMins = Math.floor(duration / 60);
+            const dSecs = Math.floor(duration % 60);
+            etaEl.textContent = `Klanklengte: ${dMins}:${String(dSecs).padStart(2, "0")}`;
         }
     }
 
