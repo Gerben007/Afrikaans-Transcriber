@@ -38,7 +38,7 @@
     async function init() {
         const res = await fetch(`/api/v1/jobs/${JOB_ID}`);
         if (!res.ok) {
-            loadingEl.innerHTML = "<p>Werk nie gevind nie.</p>";
+            loadingEl.innerHTML = "<p>Job not found.</p>";
             return;
         }
         jobData = await res.json();
@@ -53,12 +53,12 @@
         }
 
         if (jobData.status === "cancelled") {
-            loadingEl.innerHTML = `<p style="color:var(--text-muted)">Transkripsie is gekanselleer. <a href="/">Terug</a></p>`;
+            loadingEl.innerHTML = `<p style="color:var(--text-muted)">Transcription cancelled. <a href="/">Back</a></p>`;
             return;
         }
 
         if (jobData.status === "failed") {
-            loadingEl.innerHTML = `<p style="color:var(--danger)">Transkripsie het misluk: ${jobData.error_message || "Onbekende fout"}</p>`;
+            loadingEl.innerHTML = `<p style="color:var(--danger)">Transcription failed: ${jobData.error_message || "Unknown error"}</p>`;
             return;
         }
 
@@ -72,9 +72,9 @@
         const duration = data.audio_duration;
 
         if (data.status === "pending") {
-            processingStatus.textContent = "In die tou...";
+            processingStatus.textContent = "Queued...";
         } else {
-            processingStatus.textContent = "Word verwerk...";
+            processingStatus.textContent = "Processing...";
         }
 
         // Progress bar
@@ -107,26 +107,26 @@
                 if (remaining > 3600) {
                     const h = Math.floor(remaining / 3600);
                     const m = Math.floor((remaining % 3600) / 60);
-                    etaEl.textContent = `Geskat: ${h}u ${m} min oor`;
+                    etaEl.textContent = `ETA: ${h}h ${m}min remaining`;
                 } else if (remaining > 60) {
                     const m = Math.floor(remaining / 60);
                     const s = remaining % 60;
-                    etaEl.textContent = `Geskat: ${m} min ${s}s oor`;
+                    etaEl.textContent = `ETA: ${m}min ${s}s remaining`;
                 } else {
-                    etaEl.textContent = `Geskat: ${remaining}s oor`;
+                    etaEl.textContent = `ETA: ${remaining}s remaining`;
                 }
 
                 // Also show audio duration context
                 if (duration) {
                     const dMins = Math.floor(duration / 60);
                     const dSecs = Math.floor(duration % 60);
-                    etaEl.textContent += ` (klank: ${dMins}:${String(dSecs).padStart(2, "0")})`;
+                    etaEl.textContent += ` (audio: ${dMins}:${String(dSecs).padStart(2, "0")})`;
                 }
             }
         } else if (etaEl && duration && pct <= 10) {
             const dMins = Math.floor(duration / 60);
             const dSecs = Math.floor(duration % 60);
-            etaEl.textContent = `Klanklengte: ${dMins}:${String(dSecs).padStart(2, "0")}`;
+            etaEl.textContent = `Audio duration: ${dMins}:${String(dSecs).padStart(2, "0")}`;
         }
     }
 
@@ -134,12 +134,12 @@
         const btn = document.getElementById("btn-cancel");
         if (btn) {
             btn.addEventListener("click", async () => {
-                if (!confirm("Kanselleer hierdie transkripsie?")) return;
+                if (!confirm("Cancel this transcription?")) return;
                 try {
                     await fetch(`/api/v1/jobs/${JOB_ID}/cancel`, { method: "POST" });
                     window.location.href = "/";
                 } catch (err) {
-                    alert("Kon nie kanselleer nie: " + err.message);
+                    alert("Could not cancel: " + err.message);
                 }
             });
         }
@@ -180,10 +180,10 @@
                 await loadEditor();
             } else if (jobData.status === "failed") {
                 clearInterval(timer);
-                processingEl.innerHTML = `<p style="color:var(--danger)">Misluk: ${jobData.error_message || ""}</p>`;
+                processingEl.innerHTML = `<p style="color:var(--danger)">Failed: ${jobData.error_message || ""}</p>`;
             } else if (jobData.status === "cancelled") {
                 clearInterval(timer);
-                processingEl.innerHTML = `<p style="color:var(--text-muted)">Gekanselleer. <a href="/">Terug</a></p>`;
+                processingEl.innerHTML = `<p style="color:var(--text-muted)">Cancelled. <a href="/">Back</a></p>`;
             }
         }, POLL_INTERVAL);
     }
@@ -203,7 +203,7 @@
 
         liveEl.innerHTML = "";
         const heading = document.createElement("h3");
-        heading.textContent = "Lewendige transkripsie";
+        heading.textContent = "Live transcription";
         heading.style.cssText = "font-size:0.9rem;color:var(--text-muted);margin-bottom:0.75rem;";
         liveEl.appendChild(heading);
 
@@ -232,7 +232,7 @@
         // Load transcript JSON
         const res = await fetch(`/api/v1/jobs/${JOB_ID}/transcript`);
         if (!res.ok) {
-            loadingEl.innerHTML = "<p>Kon nie transkripsie laai nie.</p>";
+            loadingEl.innerHTML = "<p>Could not load transcript.</p>";
             return;
         }
         const data = await res.json();
@@ -475,10 +475,10 @@
         document.getElementById("btn-publish").addEventListener("click", async () => {
             const btn = document.getElementById("btn-publish");
             const origText = btn.innerHTML;
-            if (!confirm("Publiseer opleidingsdata? Dit sal die klank in segmente splits en stoor vir opleiding.")) return;
+            if (!confirm("Publish training data? This will split the audio into segments and store them for model training.")) return;
 
             btn.disabled = true;
-            btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;"></div> Besig...';
+            btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;"></div> Working...';
 
             try {
                 // Save current edits first
@@ -490,9 +490,9 @@
                     throw new Error(err.detail || "Publish failed");
                 }
                 const data = await res.json();
-                alert(`Opleidingsdata gepubliseer!\n\n${data.segments} segmente gestoor in bucket "${data.bucket}/${data.prefix}"`);
+                alert(`Training data published!\n\n${data.segments} segments stored in bucket "${data.bucket}/${data.prefix}"`);
             } catch (err) {
-                alert("Kon nie publiseer nie: " + err.message);
+                alert("Could not publish: " + err.message);
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = origText;
@@ -507,18 +507,18 @@
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
                 downloadBlob(blob, `training_${JOB_ID.substring(0, 8)}.json`);
             } catch (err) {
-                alert("Eksport het misluk: " + err.message);
+                alert("Export failed: " + err.message);
             }
         });
 
         btnDownloadTxt.addEventListener("click", () => {
             const text = segments.map(s => s.text).join("\n");
             const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-            downloadBlob(blob, `transkripsie_${JOB_ID.substring(0, 8)}.txt`);
+            downloadBlob(blob, `transcript_${JOB_ID.substring(0, 8)}.txt`);
         });
 
         document.getElementById("btn-delete").addEventListener("click", async () => {
-            if (!confirm("Is jy seker jy wil hierdie transkripsie verwyder? Dit kan nie ongedaan gemaak word nie.")) return;
+            if (!confirm("Are you sure you want to delete this transcription? This cannot be undone.")) return;
             try {
                 const res = await fetch(`/api/v1/jobs/${JOB_ID}`, { method: "DELETE" });
                 if (!res.ok) throw new Error("Delete failed");
@@ -530,7 +530,7 @@
                 } catch {}
                 window.location.href = "/";
             } catch (err) {
-                alert("Kon nie verwyder nie: " + err.message);
+                alert("Could not delete: " + err.message);
             }
         });
     }

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="af">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Transkripsie Redigeerder</title>
+    <title>Transcript Editor</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="/static/css/editor.css">
 </head>
@@ -19,13 +19,13 @@
                     <line x1="8" y1="23" x2="16" y2="23"/>
                 </svg>
             </div>
-            <a href="/" class="sidebar-icon" title="Tuis">
+            <a href="/" class="sidebar-icon" title="Home">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
                     <polyline points="9 22 9 12 15 12 15 22"/>
                 </svg>
             </a>
-            <a href="#" class="sidebar-icon active" title="Redigeerder">
+            <a href="#" class="sidebar-icon active" title="Editor">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -38,15 +38,15 @@
             <!-- Loading State -->
             <div id="editor-loading" class="editor-loading">
                 <div class="spinner"></div>
-                <p>Transkripsie word gelaai...</p>
+                <p>Loading transcript...</p>
             </div>
 
             <!-- Processing State -->
             <div id="editor-processing" class="editor-processing hidden">
                 <div class="processing-card">
                     <div class="spinner"></div>
-                    <h2>Transkripsie word verwerk...</h2>
-                    <p id="processing-status">Wag vir verwerking</p>
+                    <h2>Transcribing...</h2>
+                    <p id="processing-status">Waiting to process</p>
                     <div class="processing-progress">
                         <div class="progress-track-lg">
                             <div id="proc-progress-fill" class="progress-fill-lg"></div>
@@ -54,7 +54,7 @@
                         <span id="proc-progress-pct">0%</span>
                     </div>
                     <p id="proc-eta" class="processing-eta"></p>
-                    <button id="btn-cancel" class="btn-cancel">Kanselleer</button>
+                    <button id="btn-cancel" class="btn-cancel">Cancel</button>
                 </div>
             </div>
 
@@ -68,24 +68,24 @@
                                 <line x1="19" y1="12" x2="5" y2="12"/>
                                 <polyline points="12 19 5 12 12 5"/>
                             </svg>
-                            Terug
+                            Back
                         </a>
                         <div id="save-indicator" class="save-indicator">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M20 6L9 17l-5-5"/>
                             </svg>
-                            <span>Gestoor</span>
+                            <span>Saved</span>
                         </div>
                     </div>
                     <div class="toolbar-right">
-                        <button id="btn-publish" class="btn-toolbar btn-success" title="Publiseer opleidingsdata (splits klank en stoor in training-data)">
+                        <button id="btn-publish" class="btn-toolbar btn-success" title="Publish training data (split audio and store for training)">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M22 2L11 13"/>
                                 <path d="M22 2l-7 20-4-9-9-4 20-7z"/>
                             </svg>
-                            Publiseer Opleiding
+                            Publish Training
                         </button>
-                        <button id="btn-export" class="btn-toolbar" title="Laai JSON af">
+                        <button id="btn-export" class="btn-toolbar" title="Download JSON">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                                 <polyline points="7 10 12 15 17 10"/>
@@ -93,7 +93,7 @@
                             </svg>
                             .json
                         </button>
-                        <button id="btn-download-txt" class="btn-toolbar" title="Laai teks af">
+                        <button id="btn-download-txt" class="btn-toolbar" title="Download text">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                                 <polyline points="14 2 14 8 20 8"/>
@@ -102,12 +102,12 @@
                             </svg>
                             .txt
                         </button>
-                        <button id="btn-delete" class="btn-toolbar btn-danger" title="Verwyder werk">
+                        <button id="btn-delete" class="btn-toolbar btn-danger" title="Delete job">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <polyline points="3 6 5 6 21 6"/>
                                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                             </svg>
-                            Verwyder
+                            Delete
                         </button>
                     </div>
                 </div>
@@ -126,14 +126,14 @@
     <div id="player-bar" class="player-bar hidden">
         <audio id="audio-el" preload="auto"></audio>
         <div class="player-controls">
-            <button id="btn-rw" class="player-btn" title="5s terug">
+            <button id="btn-rw" class="player-btn" title="5s back">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="1 4 1 10 7 10"/>
                     <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
                 </svg>
                 <span class="skip-label">5</span>
             </button>
-            <button id="btn-play" class="player-btn play-btn" title="Speel / Pouseer">
+            <button id="btn-play" class="player-btn play-btn" title="Play / Pause">
                 <svg id="icon-play" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                     <polygon points="5 3 19 12 5 21 5 3"/>
                 </svg>
@@ -142,7 +142,7 @@
                     <rect x="14" y="4" width="4" height="16"/>
                 </svg>
             </button>
-            <button id="btn-ff" class="player-btn" title="5s vorentoe">
+            <button id="btn-ff" class="player-btn" title="5s forward">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="23 4 23 10 17 10"/>
                     <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>

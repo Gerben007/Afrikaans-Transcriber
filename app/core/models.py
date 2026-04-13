@@ -15,6 +15,7 @@ class Job(Base):
 
     job_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     client_email = Column(String(255), nullable=False)
+    original_filename = Column(String(500), nullable=True)
     audio_path = Column(Text, nullable=False)
     transcript_path = Column(Text, nullable=True)
     transcript_json_path = Column(Text, nullable=True)

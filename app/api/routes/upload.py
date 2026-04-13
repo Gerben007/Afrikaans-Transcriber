@@ -62,6 +62,7 @@ async def upload_audio(
     job = Job(
         job_id=job_id,
         client_email=client_email,
+        original_filename=file.filename or "recording.webm",
         audio_path=object_key,
         status="pending",
     )

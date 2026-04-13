@@ -14,6 +14,7 @@ class JobResponse(BaseModel):
     job_id: UUID
     status: str
     client_email: str
+    original_filename: Optional[str] = None
     progress: int = 0
     audio_duration: Optional[float] = None
     audio_url: Optional[str] = None

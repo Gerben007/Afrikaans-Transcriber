@@ -53,6 +53,7 @@ async def get_job(job_id: UUID, db: AsyncSession = Depends(get_db)):
         job_id=job.job_id,
         status=job.status,
         client_email=job.client_email,
+        original_filename=job.original_filename,
         progress=job.progress or 0,
         audio_duration=job.audio_duration,
         audio_url=audio_url,

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="af">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Afrikaans Transkripsie</title>
+    <title>Afrikaans Transcription Service</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
@@ -18,7 +18,7 @@
                     <line x1="8" y1="23" x2="16" y2="23"/>
                 </svg>
             </div>
-            <a href="/" class="sidebar-icon active" title="Tuis">
+            <a href="/" class="sidebar-icon active" title="Home">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
                     <polyline points="9 22 9 12 15 12 15 22"/>
@@ -30,9 +30,28 @@
         <main class="main-content">
             <div class="upload-page">
                 <div class="upload-header">
-                    <h1>Afrikaans Transkripsie</h1>
-                    <p>Laai 'n klank- of videol&#234;er op om outomatiese Afrikaanse transkripsie te begin</p>
+                    <h1>Afrikaans Transcription</h1>
+                    <p>Upload an audio or video file, or record from your microphone</p>
                 </div>
+
+                <!-- Record Card -->
+                <div class="record-card">
+                    <button id="record-btn" class="btn-record" title="Record from microphone">
+                        <svg id="mic-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                            <line x1="12" y1="19" x2="12" y2="23"/>
+                            <line x1="8" y1="23" x2="16" y2="23"/>
+                        </svg>
+                        <span id="record-label">Record</span>
+                    </button>
+                    <div id="recording-status" class="recording-status hidden">
+                        <div class="recording-dot"></div>
+                        <span id="recording-time">00:00</span>
+                    </div>
+                </div>
+
+                <div class="divider-or"><span>or</span></div>
 
                 <!-- Upload Card -->
                 <div class="upload-card">
@@ -45,9 +64,9 @@
                                     <line x1="12" y1="3" x2="12" y2="15"/>
                                 </svg>
                             </div>
-                            <p class="drop-text">Sleep l&#234;er hierheen</p>
-                            <p class="drop-hint">of <span class="drop-browse">blaai deur jou l&#234;ers</span></p>
-                            <p class="drop-formats">WAV, MP3, FLAC, M4A, OGG, MP4, WEBM &mdash; maks 500 MB</p>
+                            <p class="drop-text">Drag file here</p>
+                            <p class="drop-hint">or <span class="drop-browse">browse your files</span></p>
+                            <p class="drop-formats">WAV, MP3, FLAC, M4A, OGG, MP4, WEBM &mdash; max 500 MB</p>
                             <input type="file" id="file-input" accept=".wav,.mp3,.flac,.m4a,.ogg,.opus,.mp4,.webm,.3gp,.aac" hidden>
                         </div>
 
@@ -64,8 +83,8 @@
                         </div>
 
                         <div class="form-row">
-                            <label for="email">E-posadres</label>
-                            <input type="email" id="email" placeholder="jou@epos.co.za" required>
+                            <label for="email">Email address</label>
+                            <input type="email" id="email" placeholder="you@email.com" required>
                         </div>
 
                         <div id="progress-wrap" class="progress-wrap hidden">
@@ -80,14 +99,14 @@
                                 <polyline points="17 8 12 3 7 8"/>
                                 <line x1="12" y1="3" x2="12" y2="15"/>
                             </svg>
-                            Laai op &amp; Transkribeer
+                            Upload &amp; Transcribe
                         </button>
                     </form>
                 </div>
 
                 <!-- Recent Jobs -->
                 <div id="jobs-section" class="jobs-section hidden">
-                    <h2>Onlangse Transkripsies</h2>
+                    <h2>Recent Transcriptions</h2>
                     <div id="jobs-list" class="jobs-list"></div>
                 </div>
             </div>
