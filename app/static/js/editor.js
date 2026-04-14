@@ -315,6 +315,9 @@
                     if (w.probability < CONFIDENCE_THRESHOLD) {
                         span.classList.add("low-confidence");
                     }
+                    span.addEventListener("click", () => {
+                        seekTo(w.start);
+                    });
                     text.appendChild(span);
                 });
             } else {
