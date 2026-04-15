@@ -6,11 +6,18 @@ ENV PYTHONPATH=/app
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl ffmpeg \
+    && apt-get install -y --no-install-recommends curl ffmpeg git \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements/base.txt requirements/worker.txt ./requirements/
-RUN pip install --no-cache-dir -r requirements/worker.txt
+# Install torch CPU first (separate layer for caching)
+RUN pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+# Install worker + training dependencies
+COPY requirements/base.txt requirements/worker.txt training/requirements.txt ./requirements/
+RUN pip install --no-cache-dir -r requirements/worker.txt \
+    && pip install --no-cache-dir transformers>=4.39 datasets>=2.18 accelerate>=0.28 \
+       evaluate>=0.4 jiwer>=3.0 soundfile>=0.12 librosa>=0.10 \
+       ctranslate2>=4.0 huggingface-hub>=0.21
 
 COPY app/ ./app/
 COPY training/ ./training/
