@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/settings.css">
+</head>
+<body>
+    <div class="app-shell">
+        <nav class="sidebar">
+            <div class="sidebar-logo">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="23"/>
+                    <line x1="8" y1="23" x2="16" y2="23"/>
+                </svg>
+            </div>
+            <a href="/" class="sidebar-icon" title="Upload">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+            </a>
+            <a href="/transcripts" class="sidebar-icon" title="Transcripts">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                </svg>
+            </a>
+            <a href="/settings" class="sidebar-icon active" title="Settings">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+            </a>
+        </nav>
+
+        <main class="main-content">
+            <div class="settings-page">
+                <h1>Settings</h1>
+
+                <!-- Training Section -->
+                <section class="settings-section">
+                    <h2>Model Training</h2>
+                    <p class="section-desc">Train the Whisper model using your corrected transcripts to improve accuracy over time.</p>
+
+                    <!-- Stats -->
+                    <div class="stats-grid" id="stats-grid">
+                        <div class="stat-card">
+                            <span class="stat-value" id="stat-completed">--</span>
+                            <span class="stat-label">Completed</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-value" id="stat-edited">--</span>
+                            <span class="stat-label">Edited</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-value" id="stat-published">--</span>
+                            <span class="stat-label">Published</span>
+                        </div>
+                    </div>
+
+                    <!-- Train Now -->
+                    <div class="setting-card">
+                        <div class="setting-header">
+                            <div>
+                                <h3>Train Now</h3>
+                                <p id="train-status-text" class="setting-desc">Click to start training with all published corrections.</p>
+                            </div>
+                            <button id="btn-train" class="btn-train">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="5 3 19 12 5 21 5 3"/>
+                                </svg>
+                                Start Training
+                            </button>
+                        </div>
+                        <div id="train-result" class="train-result hidden"></div>
+                    </div>
+
+                    <!-- Auto Schedule -->
+                    <div class="setting-card">
+                        <div class="setting-header">
+                            <div>
+                                <h3>Automatic Training</h3>
+                                <p class="setting-desc">Automatically retrain the model on a schedule when enough corrections are published.</p>
+                            </div>
+                        </div>
+                        <div class="setting-controls">
+                            <div class="setting-row">
+                                <label for="auto-train-toggle">Enable auto-training</label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="auto-train-toggle">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-row">
+                                <label for="train-schedule">Schedule</label>
+                                <select id="train-schedule" class="setting-select">
+                                    <option value="daily">Daily</option>
+                                    <option value="weekly" selected>Weekly</option>
+                                    <option value="monthly">Monthly</option>
+                                </select>
+                            </div>
+                            <div class="setting-row">
+                                <label for="min-published">Minimum published transcripts before training</label>
+                                <input type="number" id="min-published" class="setting-input" value="5" min="1" max="100">
+                            </div>
+                            <button id="btn-save-schedule" class="btn-save-schedule">Save Schedule</button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/js/settings.js"></script>
+</body>
+</html>
