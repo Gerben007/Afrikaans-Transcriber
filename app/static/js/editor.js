@@ -28,6 +28,8 @@
     const btnDownloadTxt = document.getElementById("btn-download-txt");
 
     let segments = [];
+    let originalSegments = []; // Store original transcript for comparison
+    let showingOriginal = false;
     let jobData = null;
     let saveTimer = null;
     let speedIdx = 2; // 1.0x
@@ -238,6 +240,9 @@
         const data = await res.json();
         segments = data.segments || [];
 
+        // Store deep copy of original segments for diff tracking
+        originalSegments = JSON.parse(JSON.stringify(segments));
+
         // Set up audio
         if (jobData.audio_url) {
             audioEl.src = jobData.audio_url;
@@ -330,6 +335,10 @@
 
             text.addEventListener("input", () => {
                 segments[idx].text = text.innerText.trim();
+                // Mark as edited if different from original
+                const orig = originalSegments[idx];
+                const isEdited = orig && segments[idx].text !== orig.text;
+                div.classList.toggle("segment-edited", isEdited);
                 scheduleSave();
             });
 
@@ -342,6 +351,58 @@
             });
 
             body.appendChild(text);
+            div.appendChild(body);
+
+            // Mark as edited if different from original
+            if (!showingOriginal && originalSegments[idx] && seg.text !== originalSegments[idx].text) {
+                div.classList.add("segment-edited");
+            }
+
+            container.appendChild(div);
+        });
+    }
+
+    function renderOriginalView() {
+        container.innerHTML = "";
+        const banner = document.createElement("div");
+        banner.className = "original-banner";
+        banner.textContent = "Viewing original transcript (read-only)";
+        container.appendChild(banner);
+
+        originalSegments.forEach((seg, idx) => {
+            const div = document.createElement("div");
+            div.className = "segment segment-original";
+
+            const ts = document.createElement("div");
+            ts.className = "segment-timestamp";
+            ts.textContent = formatTimestamp(seg.start);
+            ts.addEventListener("click", () => seekTo(seg.start));
+            div.appendChild(ts);
+
+            const body = document.createElement("div");
+            body.className = "segment-body";
+
+            const speaker = document.createElement("div");
+            speaker.className = "segment-speaker";
+            speaker.textContent = seg.speaker || "Speaker 1";
+            body.appendChild(speaker);
+
+            const text = document.createElement("div");
+            text.className = "segment-text";
+            text.textContent = seg.text;
+            // Show diff: if edited version differs, show it below
+            const edited = segments[idx];
+            if (edited && edited.text !== seg.text) {
+                div.classList.add("segment-has-diff");
+                const diffEl = document.createElement("div");
+                diffEl.className = "segment-diff";
+                diffEl.innerHTML = `<span class="diff-label">Edited:</span> ${edited.text}`;
+                body.appendChild(text);
+                body.appendChild(diffEl);
+            } else {
+                body.appendChild(text);
+            }
+
             div.appendChild(body);
             container.appendChild(div);
         });
@@ -379,14 +440,23 @@
 
         // Keyboard shortcuts
         document.addEventListener("keydown", (e) => {
-            // Only handle shortcuts when not editing text
             const active = document.activeElement;
             const isEditing = active && (active.contentEditable === "true" || active.tagName === "INPUT");
 
+            // Ctrl+Space: play/pause (works even while editing)
+            if (e.ctrlKey && e.key === " ") {
+                e.preventDefault();
+                togglePlayback();
+                return;
+            }
+
+            // Space: play/pause (only when not editing)
             if (e.key === " " && !isEditing) {
                 e.preventDefault();
                 togglePlayback();
             }
+
+            // Ctrl+S: save
             if (e.ctrlKey && e.key === "s") {
                 e.preventDefault();
                 saveNow();
@@ -504,6 +574,8 @@
 
         btnExport.addEventListener("click", async () => {
             try {
+                // Save current edits first, then export
+                await saveNow();
                 const res = await fetch(`/api/v1/jobs/${JOB_ID}/export-training`);
                 if (!res.ok) throw new Error("Export failed");
                 const data = await res.json();
@@ -514,11 +586,31 @@
             }
         });
 
-        btnDownloadTxt.addEventListener("click", () => {
+        btnDownloadTxt.addEventListener("click", async () => {
+            await saveNow();
             const text = segments.map(s => s.text).join("\n");
             const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
             downloadBlob(blob, `transcript_${JOB_ID.substring(0, 8)}.txt`);
         });
+
+        // Toggle original/edited view
+        const toggleBtn = document.getElementById("btn-toggle-original");
+        if (toggleBtn) {
+            toggleBtn.addEventListener("click", () => {
+                showingOriginal = !showingOriginal;
+                if (showingOriginal) {
+                    // Show original transcript (read-only)
+                    toggleBtn.textContent = "Show Edited";
+                    toggleBtn.classList.add("btn-toggle-active");
+                    renderOriginalView();
+                } else {
+                    // Show editable transcript
+                    toggleBtn.textContent = "Show Original";
+                    toggleBtn.classList.remove("btn-toggle-active");
+                    renderSegments();
+                }
+            });
+        }
 
         document.getElementById("btn-delete").addEventListener("click", async () => {
             if (!confirm("Are you sure you want to delete this transcription? This cannot be undone.")) return;

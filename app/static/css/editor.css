@@ -328,6 +328,64 @@
     box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
+/* Edited segment indicator */
+.segment-edited {
+    border-left: 3px solid var(--primary);
+    padding-left: 0.75rem;
+    margin-left: -0.75rem;
+}
+
+.segment-edited .segment-text {
+    background: #fffbf7;
+}
+
+/* Original view */
+.original-banner {
+    background: #e7f5ff;
+    color: #1971c2;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    font-weight: 500;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    font-family: var(--font-mono);
+}
+
+.segment-original .segment-text {
+    color: var(--text-muted);
+    cursor: default;
+}
+
+.segment-has-diff {
+    border-left: 3px solid var(--primary);
+    padding-left: 0.75rem;
+    margin-left: -0.75rem;
+}
+
+.segment-diff {
+    margin-top: 0.35rem;
+    padding: 0.4rem 0.6rem;
+    background: var(--primary-light);
+    border-radius: var(--radius-sm);
+    font-size: 0.88rem;
+    color: var(--primary);
+    line-height: 1.6;
+}
+
+.diff-label {
+    font-weight: 600;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.btn-toggle-active {
+    background: #e7f5ff !important;
+    color: #1971c2 !important;
+    border-color: #74c0fc !important;
+}
+
 /* Word spans */
 .word {
     cursor: pointer;
