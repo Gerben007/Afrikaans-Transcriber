@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Float, Index, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Float, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase
 
@@ -22,6 +22,9 @@ class Job(Base):
     status = Column(String(50), nullable=False, default="pending")
     progress = Column(Integer, nullable=False, default=0)
     audio_duration = Column(Float, nullable=True)
+    is_edited = Column(Boolean, nullable=False, default=False)
+    training_published = Column(Boolean, nullable=False, default=False)
+    is_exported = Column(Boolean, nullable=False, default=False)
     payment_ref = Column(String(255), nullable=True)
     error_message = Column(Text, nullable=True)
     created_at = Column(

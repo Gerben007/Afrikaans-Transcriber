@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transcripts</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/transcripts.css">
+</head>
+<body>
+    <div class="app-shell">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="sidebar-logo">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="23"/>
+                    <line x1="8" y1="23" x2="16" y2="23"/>
+                </svg>
+            </div>
+            <a href="/" class="sidebar-icon" title="Upload">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+            </a>
+            <a href="/transcripts" class="sidebar-icon active" title="Transcripts">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                </svg>
+            </a>
+        </nav>
+
+        <main class="main-content">
+            <div class="transcripts-page">
+                <div class="transcripts-header">
+                    <h1>Transcripts</h1>
+                    <a href="/" class="btn-new-upload">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                        New Upload
+                    </a>
+                </div>
+
+                <div id="transcripts-loading" class="transcripts-loading">
+                    <div class="spinner"></div>
+                </div>
+
+                <div id="transcripts-empty" class="transcripts-empty hidden">
+                    <p>No transcripts yet. <a href="/">Upload your first file</a>.</p>
+                </div>
+
+                <table id="transcripts-table" class="transcripts-table hidden">
+                    <thead>
+                        <tr>
+                            <th>File</th>
+                            <th>Date</th>
+                            <th>Duration</th>
+                            <th>Status</th>
+                            <th>Edited</th>
+                            <th>Training</th>
+                            <th>Exported</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="transcripts-body"></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/js/transcripts.js"></script>
+</body>
+</html>

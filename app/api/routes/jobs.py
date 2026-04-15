@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
 from app.api.deps import get_db
-from app.api.schemas import JobResponse, TranscriptData, TranscriptUpdate
+from app.api.schemas import JobListItem, JobResponse, TranscriptData, TranscriptUpdate
 from app.core.config import settings
 from app.core.models import Job
 from app.core.storage import download_file, get_minio_client, presigned_get_url, upload_file
@@ -19,6 +19,29 @@ from app.core.storage import download_file, get_minio_client, presigned_get_url,
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+@router.get("/jobs", response_model=list[JobListItem])
+async def list_jobs(db: AsyncSession = Depends(get_db)):
+    """List all jobs, newest first."""
+    result = await db.execute(select(Job).order_by(Job.created_at.desc()))
+    jobs = result.scalars().all()
+    return [
+        JobListItem(
+            job_id=j.job_id,
+            status=j.status,
+            original_filename=j.original_filename,
+            client_email=j.client_email,
+            progress=j.progress or 0,
+            audio_duration=j.audio_duration,
+            is_edited=j.is_edited or False,
+            training_published=j.training_published or False,
+            is_exported=j.is_exported or False,
+            created_at=j.created_at,
+            updated_at=j.updated_at,
+        )
+        for j in jobs
+    ]
 
 
 @router.get("/jobs/{job_id}", response_model=JobResponse)
@@ -56,6 +79,9 @@ async def get_job(job_id: UUID, db: AsyncSession = Depends(get_db)):
         original_filename=job.original_filename,
         progress=job.progress or 0,
         audio_duration=job.audio_duration,
+        is_edited=job.is_edited or False,
+        training_published=job.training_published or False,
+        is_exported=job.is_exported or False,
         audio_url=audio_url,
         transcript_url=transcript_url,
         transcript_json_url=transcript_json_url,
@@ -194,9 +220,10 @@ async def save_transcript(
         if os.path.exists(tmp_txt):
             os.remove(tmp_txt)
 
-    # Update DB paths if needed
+    # Update DB paths and mark as edited
     job.transcript_path = txt_key
     job.transcript_json_path = json_key
+    job.is_edited = True
     await db.commit()
 
     return {"status": "saved"}
@@ -244,6 +271,10 @@ async def export_training_data(job_id: UUID, db: AsyncSession = Depends(get_db))
         "language": "af",
         "pairs": training_pairs,
     }
+
+    # Mark as exported
+    job.is_exported = True
+    await db.commit()
 
 
 @router.post("/jobs/{job_id}/publish-training")
@@ -329,6 +360,13 @@ async def publish_training_data(job_id: UUID, db: AsyncSession = Depends(get_db)
             csv_path,
             content_type="text/csv",
         )
+
+        # Mark as training published in DB
+        result2 = await db.execute(select(Job).where(Job.job_id == job_id))
+        job2 = result2.scalar_one_or_none()
+        if job2:
+            job2.training_published = True
+            await db.commit()
 
         return {
             "status": "published",

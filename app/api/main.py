@@ -64,6 +64,11 @@ async def index(request: Request):
     return templates.TemplateResponse(request=request, name="index.html")
 
 
+@app.get("/transcripts")
+async def transcripts(request: Request):
+    return templates.TemplateResponse(request=request, name="transcripts.html")
+
+
 @app.get("/editor/{job_id}")
 async def editor(request: Request, job_id: str):
     return templates.TemplateResponse(request=request, name="editor.html", context={"job_id": job_id})

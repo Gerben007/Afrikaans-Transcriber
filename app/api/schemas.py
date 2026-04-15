@@ -17,11 +17,30 @@ class JobResponse(BaseModel):
     original_filename: Optional[str] = None
     progress: int = 0
     audio_duration: Optional[float] = None
+    is_edited: bool = False
+    training_published: bool = False
+    is_exported: bool = False
     audio_url: Optional[str] = None
     transcript_url: Optional[str] = None
     transcript_json_url: Optional[str] = None
     error_message: Optional[str] = None
     created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class JobListItem(BaseModel):
+    job_id: UUID
+    status: str
+    original_filename: Optional[str] = None
+    client_email: str
+    progress: int = 0
+    audio_duration: Optional[float] = None
+    is_edited: bool = False
+    training_published: bool = False
+    is_exported: bool = False
+    created_at: datetime
+    updated_at: datetime
 
     model_config = {"from_attributes": True}
 
