@@ -321,7 +321,7 @@
                         span.classList.add("low-confidence");
                     }
                     span.addEventListener("click", () => {
-                        seekTo(w.start);
+                        playSnippet(w.start, 3);
                     });
                     text.appendChild(span);
                 });
@@ -335,6 +335,8 @@
 
             text.addEventListener("input", () => {
                 segments[idx].text = text.innerText.trim();
+                // Clear word-level data since it no longer matches edited text
+                segments[idx].words = [];
                 // Mark as edited if different from original
                 const orig = originalSegments[idx];
                 const isEdited = orig && segments[idx].text !== orig.text;
@@ -485,6 +487,26 @@
         }
     }
 
+    let snippetTimer = null;
+
+    function playSnippet(startTime, durationSecs) {
+        // Clear any previous snippet timer
+        if (snippetTimer) clearTimeout(snippetTimer);
+
+        audioEl.currentTime = startTime;
+        audioEl.play();
+        iconPlay.classList.add("hidden");
+        iconPause.classList.remove("hidden");
+
+        // Auto-pause after durationSecs
+        snippetTimer = setTimeout(() => {
+            audioEl.pause();
+            iconPlay.classList.remove("hidden");
+            iconPause.classList.add("hidden");
+            snippetTimer = null;
+        }, durationSecs * 1000);
+    }
+
     // --- Word Highlighting ---
     let lastActiveWord = null;
 
@@ -543,6 +565,17 @@
     }
 
     // --- Toolbar ---
+    // Save before navigating away
+    window.addEventListener("beforeunload", (e) => {
+        if (saveTimer) {
+            // There are unsaved changes — save synchronously
+            navigator.sendBeacon(
+                `/api/v1/jobs/${JOB_ID}/transcript`,
+                new Blob([JSON.stringify({ segments })], { type: "application/json" })
+            );
+        }
+    });
+
     function setupToolbar() {
         // Publish training data
         document.getElementById("btn-publish").addEventListener("click", async () => {
