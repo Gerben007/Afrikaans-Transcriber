@@ -24,17 +24,49 @@
             const statusText = document.getElementById("train-status-text");
             const resultEl = document.getElementById("train-result");
 
+            // Training progress bar
+            let progressEl = document.getElementById("train-progress");
+            if (!progressEl) {
+                progressEl = document.createElement("div");
+                progressEl.id = "train-progress";
+                progressEl.className = "train-progress hidden";
+                progressEl.innerHTML = `
+                    <div class="train-progress-bar">
+                        <div class="train-progress-fill" id="train-progress-fill"></div>
+                    </div>
+                    <div class="train-progress-info">
+                        <span id="train-progress-step" class="train-step-label"></span>
+                        <span id="train-progress-pct" class="train-pct-label"></span>
+                    </div>
+                    <p id="train-progress-msg" class="train-progress-msg"></p>
+                `;
+                const card = btn.closest(".setting-card");
+                if (card) card.appendChild(progressEl);
+            }
+
             if (data.is_training) {
                 btn.disabled = true;
                 btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;"></div> Training...';
-                statusText.textContent = "Training is in progress. This may take several hours on CPU.";
-                // Poll for updates
+
+                // Show detailed progress
+                const pct = data.training_progress || 0;
+                const step = data.training_step || "starting";
+                const msg = data.training_message || "Starting...";
+
+                statusText.textContent = msg;
+                progressEl.classList.remove("hidden");
+                document.getElementById("train-progress-fill").style.width = pct + "%";
+                document.getElementById("train-progress-step").textContent = step.toUpperCase();
+                document.getElementById("train-progress-pct").textContent = pct + "%";
+                document.getElementById("train-progress-msg").textContent = msg;
+
                 if (!pollTimer) {
                     pollTimer = setInterval(loadStatus, POLL_INTERVAL);
                 }
             } else {
                 btn.disabled = false;
                 btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Start Training`;
+                progressEl.classList.add("hidden");
 
                 if (data.published_count === 0) {
                     statusText.textContent = "No published training data yet. Edit transcripts and click 'Publish Training' first.";

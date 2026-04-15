@@ -28,6 +28,9 @@ class TrainingSchedule(BaseModel):
 
 class TrainingStatus(BaseModel):
     is_training: bool = False
+    training_step: str = ""
+    training_progress: int = 0
+    training_message: str = ""
     last_trained: str | None = None
     last_train_result: str | None = None
     published_count: int = 0
@@ -108,6 +111,9 @@ async def get_training_status(db: AsyncSession = Depends(get_db)):
 
     return TrainingStatus(
         is_training=is_training,
+        training_step=data.get("training_step", ""),
+        training_progress=data.get("training_progress", 0),
+        training_message=data.get("training_message", ""),
         last_trained=last_trained,
         last_train_result=last_train_result,
         published_count=published_count,
