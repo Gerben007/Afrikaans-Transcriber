@@ -191,23 +191,37 @@ def main():
     # Load processor and model
     logger.info("Loading model: %s", args.model_name)
     processor = WhisperProcessor.from_pretrained(
-        args.model_name, language="af", task="transcribe"
+        args.model_name, language="af", task="transcribe",
+        token=args.hf_token,
     )
     model = WhisperForConditionalGeneration.from_pretrained(
-        args.model_name, torch_dtype=torch_dtype
+        args.model_name, torch_dtype=torch_dtype,
+        token=args.hf_token,
     )
     model.generation_config.language = "af"
     model.generation_config.task = "transcribe"
     model.generation_config.forced_decoder_ids = None
 
     # Load data
-    cv = load_common_voice(args.language, args.hf_token)
+    cv = None
+    try:
+        cv = load_common_voice(args.language, args.hf_token)
+    except Exception as e:
+        logger.warning("Could not load Common Voice dataset: %s", e)
 
     if args.custom_data_dir and os.path.isdir(args.custom_data_dir):
         custom_ds = load_custom_data(args.custom_data_dir)
         if custom_ds is not None:
-            cv["train"] = concatenate_datasets([cv["train"], custom_ds])
+            if cv is not None:
+                cv["train"] = concatenate_datasets([cv["train"], custom_ds])
+            else:
+                split = custom_ds.train_test_split(test_size=0.1, seed=42)
+                cv = DatasetDict({"train": split["train"], "validation": split["test"]})
             logger.info("Total training samples: %d", len(cv["train"]))
+
+    if cv is None:
+        logger.error("No training data available. Provide --hf_token for Common Voice or --custom_data_dir with data.")
+        raise SystemExit(1)
 
     # Resample and preprocess
     cv = cv.cast_column("audio", Audio(sampling_rate=16000))

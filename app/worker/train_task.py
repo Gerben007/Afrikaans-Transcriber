@@ -129,6 +129,9 @@ def run_training_pipeline(self) -> dict:
             "--num_train_epochs", os.environ.get("NUM_TRAIN_EPOCHS", "3"),
             "--per_device_train_batch_size", os.environ.get("PER_DEVICE_TRAIN_BATCH_SIZE", "4"),
         ]
+        hf_token = os.environ.get("HF_TOKEN")
+        if hf_token:
+            train_cmd.extend(["--hf_token", hf_token])
 
         # Check if training script exists
         if not os.path.exists("/app/training/train.py") and not os.path.exists("training/train.py"):
@@ -145,10 +148,10 @@ def run_training_pipeline(self) -> dict:
         if not ok:
             data["is_training"] = False
             data["last_trained"] = datetime.now(timezone.utc).isoformat()
-            data["last_train_result"] = f"Training failed: {output[:500]}"
+            data["last_train_result"] = f"Training failed: {output[-1500:]}"
             _update_training_progress("idle", 0, "")
             _save_settings(data)
-            return {"status": "train_failed", "error": output[:500]}
+            return {"status": "train_failed", "error": output[-1500:]}
         _update_training_progress("train", 80, "Training completed. Converting model...")
         results.append("Training completed")
 
@@ -166,10 +169,10 @@ def run_training_pipeline(self) -> dict:
         if not ok:
             data["is_training"] = False
             data["last_trained"] = datetime.now(timezone.utc).isoformat()
-            data["last_train_result"] = f"Conversion failed: {output[:500]}"
+            data["last_train_result"] = f"Conversion failed: {output[-1500:]}"
             _update_training_progress("idle", 0, "")
             _save_settings(data)
-            return {"status": "convert_failed", "error": output[:500]}
+            return {"status": "convert_failed", "error": output[-1500:]}
         results.append("Model converted")
 
         # Step 5: Reload the whisper model (clear the cached singleton)
