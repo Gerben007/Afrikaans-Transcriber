@@ -7,7 +7,8 @@
     init();
 
     async function init() {
-        await Promise.all([loadStatus(), loadSettings()]);
+        await Promise.all([loadStatus(), loadSettings(), loadAIStatus()]);
+        setupAPIKey();
     }
 
     async function loadStatus() {
@@ -106,6 +107,13 @@
             document.getElementById("auto-train-toggle").checked = sched.auto_train_enabled || false;
             document.getElementById("train-schedule").value = sched.auto_train_cron || "weekly";
             document.getElementById("min-published").value = sched.min_published_before_train || 5;
+
+            // Populate masked API key
+            const keyInput = document.getElementById("anthropic-key-input");
+            if (keyInput && data.anthropic_api_key) {
+                keyInput.value = data.anthropic_api_key;
+                keyInput.placeholder = "Key is set (enter new key to change)";
+            }
         } catch (err) {
             console.error("Failed to load settings:", err);
         }
@@ -165,4 +173,76 @@
             btn.disabled = false;
         }
     });
+    // --- AI API Key ---
+    async function loadAIStatus() {
+        const badge = document.getElementById("ai-status-badge");
+        if (!badge) return;
+        try {
+            const res = await fetch("/api/v1/ai/status");
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.available) {
+                badge.textContent = "Active";
+                badge.className = "ai-status-badge status-active";
+            } else {
+                badge.textContent = "Not configured";
+                badge.className = "ai-status-badge status-inactive";
+            }
+        } catch {
+            badge.textContent = "Unknown";
+            badge.className = "ai-status-badge status-inactive";
+        }
+    }
+
+    function setupAPIKey() {
+        const keyInput = document.getElementById("anthropic-key-input");
+        const toggleBtn = document.getElementById("btn-toggle-key-visibility");
+        const saveBtn = document.getElementById("btn-save-key");
+
+        if (!keyInput) return;
+
+        // Toggle visibility
+        toggleBtn.addEventListener("click", () => {
+            const isPassword = keyInput.type === "password";
+            keyInput.type = isPassword ? "text" : "password";
+        });
+
+        // Save key
+        saveBtn.addEventListener("click", async () => {
+            const key = keyInput.value.trim();
+            saveBtn.textContent = "Saving...";
+            saveBtn.disabled = true;
+
+            try {
+                // Load current settings, update key, save back
+                const getRes = await fetch("/api/v1/settings");
+                const current = await getRes.json();
+
+                current.anthropic_api_key = key;
+
+                const res = await fetch("/api/v1/settings", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(current),
+                });
+                if (!res.ok) throw new Error("Save failed");
+
+                saveBtn.textContent = "Saved!";
+                await loadAIStatus();
+
+                // Reload to show masked key
+                await loadSettings();
+
+                setTimeout(() => {
+                    saveBtn.textContent = "Save API Key";
+                    saveBtn.disabled = false;
+                }, 2000);
+            } catch (err) {
+                alert("Failed to save API key: " + err.message);
+                saveBtn.textContent = "Save API Key";
+                saveBtn.disabled = false;
+            }
+        });
+    }
+
 })();

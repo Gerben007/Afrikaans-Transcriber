@@ -45,6 +45,37 @@
             <div class="settings-page">
                 <h1>Settings</h1>
 
+                <!-- AI Correction Section -->
+                <section class="settings-section">
+                    <h2>AI Correction</h2>
+                    <p class="section-desc">Use Claude to suggest corrections for Afrikaans ASR errors in the transcript editor.</p>
+
+                    <div class="setting-card">
+                        <div class="setting-header">
+                            <div>
+                                <h3>Anthropic API Key</h3>
+                                <p class="setting-desc">Enter your Anthropic API key to enable the AI Smart Fix feature. Get one at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
+                            </div>
+                            <span id="ai-status-badge" class="ai-status-badge">Checking...</span>
+                        </div>
+                        <div class="setting-controls">
+                            <div class="setting-row">
+                                <label for="anthropic-key-input">API Key</label>
+                                <div class="key-input-group">
+                                    <input type="password" id="anthropic-key-input" class="setting-input setting-input-wide" placeholder="sk-ant-..." autocomplete="off">
+                                    <button id="btn-toggle-key-visibility" class="btn-toggle-key" type="button" title="Show/hide key">
+                                        <svg id="icon-eye" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                            <circle cx="12" cy="12" r="3"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <button id="btn-save-key" class="btn-save-schedule">Save API Key</button>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- Training Section -->
                 <section class="settings-section">
                     <h2>Model Training</h2>

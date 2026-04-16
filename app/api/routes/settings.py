@@ -40,6 +40,7 @@ class TrainingStatus(BaseModel):
 
 class AppSettings(BaseModel):
     training_schedule: TrainingSchedule = TrainingSchedule()
+    anthropic_api_key: str = ""
 
 
 def _load_settings() -> dict:
@@ -72,16 +73,36 @@ def _save_settings(data: dict) -> None:
 
 @router.get("/settings")
 async def get_settings():
-    """Get app settings."""
+    """Get app settings (API key is masked in response)."""
     data = _load_settings()
-    return AppSettings(**data)
+    result = AppSettings(**data).model_dump()
+    # Mask the API key – only show last 4 chars
+    key = result.get("anthropic_api_key", "")
+    if key:
+        result["anthropic_api_key"] = "••••" + key[-4:]
+    return result
 
 
 @router.put("/settings")
 async def update_settings(body: AppSettings):
-    """Update app settings."""
-    _save_settings(body.model_dump())
+    """Update app settings (merges with existing to preserve training state)."""
+    existing = _load_settings()
+    update = body.model_dump()
+    # If the masked placeholder is sent back, keep the stored key
+    if update.get("anthropic_api_key", "").startswith("••••"):
+        update["anthropic_api_key"] = existing.get("anthropic_api_key", "")
+    existing.update(update)
+    _save_settings(existing)
     return {"status": "saved"}
+
+
+def get_anthropic_api_key() -> str:
+    """Get the Anthropic API key from UI settings, falling back to env var."""
+    data = _load_settings()
+    key = data.get("anthropic_api_key", "")
+    if key:
+        return key
+    return settings.ANTHROPIC_API_KEY
 
 
 @router.get("/settings/training-status")

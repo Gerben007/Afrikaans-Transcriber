@@ -6,7 +6,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 
 from app.api.schemas import SegmentCorrectionRequest, SegmentCorrectionResponse
-from app.core.config import settings
+from app.api.routes.settings import get_anthropic_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -33,14 +33,15 @@ Respond ONLY with valid JSON (no markdown, no code fences):
 @router.get("/ai/status")
 async def ai_status():
     """Check if AI correction is available."""
-    return {"available": bool(settings.ANTHROPIC_API_KEY)}
+    return {"available": bool(get_anthropic_api_key())}
 
 
 @router.post("/ai/correct-segment", response_model=SegmentCorrectionResponse)
 async def correct_segment(body: SegmentCorrectionRequest):
     """Send a transcript segment to Claude for correction suggestions."""
-    if not settings.ANTHROPIC_API_KEY:
-        raise HTTPException(status_code=503, detail="AI correction not configured. Set ANTHROPIC_API_KEY.")
+    api_key = get_anthropic_api_key()
+    if not api_key:
+        raise HTTPException(status_code=503, detail="AI correction not configured. Add your API key in Settings.")
 
     try:
         import anthropic
@@ -57,7 +58,7 @@ async def correct_segment(body: SegmentCorrectionRequest):
     user_message = "\n\n".join(context_parts)
 
     try:
-        client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        client = anthropic.Anthropic(api_key=api_key)
         message = client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=1024,
