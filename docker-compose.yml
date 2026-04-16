@@ -111,8 +111,9 @@ services:
       - WHISPER_DEVICE=${WHISPER_DEVICE:-cpu}
       - WHISPER_COMPUTE_TYPE=${WHISPER_COMPUTE_TYPE:-int8}
       - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL}
+      - HF_TOKEN=${HF_TOKEN:-}
     volumes:
-      - ${HOST_MODEL_PATH:-./models/whisper}:/models/whisper:ro
+      - ${HOST_MODEL_PATH:-./models/whisper}:/models/whisper
     # Uncomment the block below if you have an NVIDIA GPU + Container Toolkit:
     # deploy:
     #   resources:
