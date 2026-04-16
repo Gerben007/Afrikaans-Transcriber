@@ -71,3 +71,16 @@ class TranscriptData(BaseModel):
 
 class TranscriptUpdate(BaseModel):
     segments: list[TranscriptSegment]
+
+
+class SegmentCorrectionRequest(BaseModel):
+    segment_text: str
+    context_before: list[str] = []
+    context_after: list[str] = []
+    language: str = "af"
+
+
+class SegmentCorrectionResponse(BaseModel):
+    suggestion: str
+    explanation: str
+    confidence: float = 0.0

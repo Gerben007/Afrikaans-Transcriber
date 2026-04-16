@@ -81,6 +81,7 @@ services:
       - PAYFAST_PASSPHRASE=${PAYFAST_PASSPHRASE}
       - PAYFAST_MERCHANT_ID=${PAYFAST_MERCHANT_ID}
       - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
     expose:
       - "8000"
     command: >

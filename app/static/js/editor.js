@@ -24,8 +24,23 @@
     const timeCurrent = document.getElementById("time-current");
     const btnSpeed = document.getElementById("btn-speed");
     const saveIndicator = document.getElementById("save-indicator");
-    const btnExport = document.getElementById("btn-export");
-    const btnDownloadTxt = document.getElementById("btn-download-txt");
+
+    // Speaker colour palette
+    const SPEAKER_COLORS = [
+        "#e67700", "#2b8a3e", "#1864ab", "#862e9c",
+        "#c92a2a", "#5c940d", "#0b7285", "#e8590c",
+    ];
+    const speakerColorMap = {};
+    let nextColorIdx = 0;
+
+    function speakerColor(name) {
+        if (!name) return SPEAKER_COLORS[0];
+        if (!speakerColorMap[name]) {
+            speakerColorMap[name] = SPEAKER_COLORS[nextColorIdx % SPEAKER_COLORS.length];
+            nextColorIdx++;
+        }
+        return speakerColorMap[name];
+    }
 
     let segments = [];
     let originalSegments = []; // Store original transcript for comparison
@@ -33,6 +48,7 @@
     let jobData = null;
     let saveTimer = null;
     let speedIdx = 2; // 1.0x
+    let aiAvailable = false;
 
     // --- Init ---
     init();
@@ -254,16 +270,25 @@
         contentEl.classList.remove("hidden");
         setupAudioEvents();
         setupToolbar();
+        setupFindReplace();
+        initWaveSurfer();
     }
 
     // --- Render Segments ---
     function renderSegments() {
         container.innerHTML = "";
+        closeSpeakerDropdowns();
+
+        // Collect unique speakers for dropdown
+        const allSpeakers = [...new Set(segments.map(s => s.speaker || "Spreker 1"))];
 
         segments.forEach((seg, idx) => {
             const div = document.createElement("div");
             div.className = "segment";
             div.dataset.idx = idx;
+
+            const sName = seg.speaker || "Spreker 1";
+            div.style.borderLeftColor = speakerColor(sName);
 
             // Timestamp
             const ts = document.createElement("div");
@@ -276,32 +301,60 @@
             const body = document.createElement("div");
             body.className = "segment-body";
 
-            // Speaker
-            const speaker = document.createElement("div");
-            speaker.className = "segment-speaker";
-            speaker.contentEditable = "true";
-            speaker.spellcheck = false;
-            speaker.textContent = seg.speaker || "Spreker 1";
-            speaker.addEventListener("blur", () => {
-                const oldName = seg.speaker || "Spreker 1";
-                const newName = speaker.textContent.trim() || "Spreker 1";
-                if (newName !== oldName) {
-                    // Update ALL segments with the same old speaker name
-                    segments.forEach((s, i) => {
-                        if (s.speaker === oldName) {
-                            s.speaker = newName;
-                        }
-                    });
-                    // Re-render all speaker labels
-                    container.querySelectorAll(".segment-speaker").forEach(el => {
-                        if (el.textContent.trim() === oldName) {
-                            el.textContent = newName;
-                        }
-                    });
-                    scheduleSave();
-                }
+            // Speaker (with color dot + dropdown)
+            const speakerWrap = document.createElement("div");
+            speakerWrap.className = "segment-speaker";
+            speakerWrap.style.position = "relative";
+
+            const dot = document.createElement("span");
+            dot.className = "speaker-dot";
+            dot.style.backgroundColor = speakerColor(sName);
+            speakerWrap.appendChild(dot);
+
+            const speakerLabel = document.createElement("span");
+            speakerLabel.textContent = sName;
+            speakerWrap.appendChild(speakerLabel);
+
+            speakerWrap.addEventListener("click", (e) => {
+                e.stopPropagation();
+                closeSpeakerDropdowns();
+                showSpeakerDropdown(speakerWrap, idx, allSpeakers);
             });
-            body.appendChild(speaker);
+            body.appendChild(speakerWrap);
+
+            // Header row (speaker + warnings + AI button)
+            const headerRow = document.createElement("div");
+            headerRow.style.cssText = "display:flex;align-items:center;gap:0.25rem;flex-wrap:wrap;";
+            headerRow.appendChild(speakerWrap);
+
+            // Pattern warnings
+            const warnings = detectPatterns(seg.text);
+            if (warnings.length > 0) {
+                const badge = document.createElement("span");
+                badge.className = "pattern-warning";
+                badge.textContent = "⚠ " + warnings.length;
+                badge.title = warnings.join("\n");
+                badge.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    toggleWarningList(badge, warnings);
+                });
+                headerRow.appendChild(badge);
+            }
+
+            // AI Smart Fix button
+            if (aiAvailable) {
+                const fixBtn = document.createElement("button");
+                fixBtn.className = "btn-smart-fix";
+                fixBtn.textContent = "✨ Fix";
+                fixBtn.title = "AI-assisted correction";
+                fixBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    requestAICorrection(idx, fixBtn, body);
+                });
+                headerRow.appendChild(fixBtn);
+            }
+
+            body.appendChild(headerRow);
 
             // Text
             const text = document.createElement("div");
@@ -410,6 +463,217 @@
         });
     }
 
+    // --- Speaker Dropdown ---
+    function closeSpeakerDropdowns() {
+        document.querySelectorAll(".speaker-dropdown").forEach(d => d.remove());
+    }
+
+    function showSpeakerDropdown(wrap, segIdx, allSpeakers) {
+        const dd = document.createElement("div");
+        dd.className = "speaker-dropdown";
+
+        const current = segments[segIdx].speaker || "Spreker 1";
+
+        allSpeakers.forEach(name => {
+            const item = document.createElement("button");
+            item.className = "speaker-dropdown-item" + (name === current ? " active" : "");
+            const d = document.createElement("span");
+            d.className = "speaker-dot";
+            d.style.backgroundColor = speakerColor(name);
+            item.appendChild(d);
+            item.appendChild(document.createTextNode(name));
+            item.addEventListener("click", (e) => {
+                e.stopPropagation();
+                assignSpeaker(segIdx, name);
+                closeSpeakerDropdowns();
+            });
+            dd.appendChild(item);
+        });
+
+        // Divider + new speaker
+        const divider = document.createElement("div");
+        divider.className = "speaker-dropdown-divider";
+        dd.appendChild(divider);
+
+        const newBtn = document.createElement("button");
+        newBtn.className = "speaker-dropdown-item";
+        newBtn.textContent = "+ New speaker...";
+        newBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            newBtn.remove();
+            const input = document.createElement("input");
+            input.className = "speaker-new-input";
+            input.placeholder = "Speaker name...";
+            input.addEventListener("keydown", (ev) => {
+                if (ev.key === "Enter") {
+                    const name = input.value.trim();
+                    if (name) {
+                        assignSpeaker(segIdx, name);
+                    }
+                    closeSpeakerDropdowns();
+                } else if (ev.key === "Escape") {
+                    closeSpeakerDropdowns();
+                }
+            });
+            dd.appendChild(input);
+            input.focus();
+        });
+        dd.appendChild(newBtn);
+
+        wrap.appendChild(dd);
+    }
+
+    function assignSpeaker(segIdx, name) {
+        segments[segIdx].speaker = name;
+        scheduleSave();
+        renderSegments();
+    }
+
+    // Close dropdowns on outside click
+    document.addEventListener("click", () => closeSpeakerDropdowns());
+
+    // --- Pattern Detection ---
+    const AFRIKAANS_PATTERNS = [
+        { regex: /Dankie vir die kyk/gi, msg: "Hallucinated YouTube outro" },
+        { regex: /Ondertitels deur/gi, msg: "Hallucinated subtitle credit" },
+        { regex: /Teken in op/gi, msg: "Hallucinated subscribe prompt" },
+        { regex: /(\b\w+\b)\s+\1/gi, msg: "Repeated word" },
+        { regex: /\b(um|uh|eh)\b/gi, msg: "Filler word" },
+        { regex: /(?<!\w)'n\b/i, msg: "Check: 'n article usage" },
+    ];
+
+    function detectPatterns(text) {
+        const found = [];
+        AFRIKAANS_PATTERNS.forEach(p => {
+            if (p.regex.test(text)) {
+                found.push(p.msg);
+                p.regex.lastIndex = 0; // reset regex state
+            }
+        });
+        return found;
+    }
+
+    function toggleWarningList(badge, warnings) {
+        // Remove existing
+        const existing = badge.parentElement.querySelector(".pattern-warning-list");
+        if (existing) { existing.remove(); return; }
+
+        const list = document.createElement("div");
+        list.className = "pattern-warning-list";
+        warnings.forEach(w => {
+            const item = document.createElement("div");
+            item.className = "pattern-warning-item";
+            item.textContent = w;
+            list.appendChild(item);
+        });
+        badge.parentElement.style.position = "relative";
+        badge.parentElement.appendChild(list);
+        setTimeout(() => document.addEventListener("click", function handler() {
+            list.remove();
+            document.removeEventListener("click", handler);
+        }, { once: true }), 0);
+    }
+
+    // --- AI Smart Fix ---
+    async function checkAIAvailability() {
+        try {
+            const res = await fetch("/api/v1/ai/status");
+            if (res.ok) {
+                const data = await res.json();
+                aiAvailable = data.available;
+            }
+        } catch { aiAvailable = false; }
+    }
+
+    async function requestAICorrection(segIdx, btn, bodyEl) {
+        const origHTML = btn.innerHTML;
+        btn.innerHTML = '<span class="correction-loading"></span>';
+        btn.disabled = true;
+
+        const seg = segments[segIdx];
+        const ctxBefore = segments.slice(Math.max(0, segIdx - 2), segIdx).map(s => s.text);
+        const ctxAfter = segments.slice(segIdx + 1, segIdx + 3).map(s => s.text);
+
+        try {
+            const res = await fetch("/api/v1/ai/correct-segment", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    segment_text: seg.text,
+                    context_before: ctxBefore,
+                    context_after: ctxAfter,
+                    language: "af",
+                }),
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                alert("AI correction failed: " + (err.detail || "Unknown error"));
+                return;
+            }
+
+            const data = await res.json();
+
+            // If suggestion is the same, no changes needed
+            if (data.suggestion === seg.text) {
+                btn.textContent = "✓ OK";
+                setTimeout(() => { btn.innerHTML = origHTML; btn.disabled = false; }, 2000);
+                return;
+            }
+
+            // Show suggestion UI
+            showCorrectionSuggestion(segIdx, data, bodyEl);
+        } catch (err) {
+            alert("AI correction failed: " + err.message);
+        } finally {
+            btn.innerHTML = origHTML;
+            btn.disabled = false;
+        }
+    }
+
+    function showCorrectionSuggestion(segIdx, data, bodyEl) {
+        // Remove any existing suggestion
+        bodyEl.querySelector(".correction-suggestion")?.remove();
+
+        const box = document.createElement("div");
+        box.className = "correction-suggestion";
+
+        const textEl = document.createElement("div");
+        textEl.className = "correction-suggestion-text";
+        textEl.textContent = data.suggestion;
+        box.appendChild(textEl);
+
+        if (data.explanation) {
+            const explEl = document.createElement("div");
+            explEl.className = "correction-explanation";
+            explEl.textContent = data.explanation;
+            box.appendChild(explEl);
+        }
+
+        const actions = document.createElement("div");
+        actions.className = "correction-actions";
+
+        const acceptBtn = document.createElement("button");
+        acceptBtn.className = "correction-accept";
+        acceptBtn.textContent = "✓ Accept";
+        acceptBtn.addEventListener("click", () => {
+            segments[segIdx].text = data.suggestion;
+            segments[segIdx].words = [];
+            scheduleSave();
+            renderSegments();
+        });
+        actions.appendChild(acceptBtn);
+
+        const rejectBtn = document.createElement("button");
+        rejectBtn.className = "correction-reject";
+        rejectBtn.textContent = "✕ Dismiss";
+        rejectBtn.addEventListener("click", () => box.remove());
+        actions.appendChild(rejectBtn);
+
+        box.appendChild(actions);
+        bodyEl.appendChild(box);
+    }
+
     // --- Audio Player ---
     function setupAudioEvents() {
         btnPlay.addEventListener("click", togglePlayback);
@@ -462,6 +726,21 @@
             if (e.ctrlKey && e.key === "s") {
                 e.preventDefault();
                 saveNow();
+            }
+
+            // Ctrl+H: find & replace
+            if (e.ctrlKey && e.key === "h") {
+                e.preventDefault();
+                toggleFindReplace();
+            }
+
+            // Escape: close find & replace
+            if (e.key === "Escape") {
+                const panel = document.getElementById("find-replace-panel");
+                if (panel && !panel.classList.contains("hidden")) {
+                    panel.classList.add("hidden");
+                    clearFindHighlights();
+                }
             }
         });
     }
@@ -605,26 +884,32 @@
             }
         });
 
-        btnExport.addEventListener("click", async () => {
-            try {
-                // Save current edits first, then export
-                await saveNow();
-                const res = await fetch(`/api/v1/jobs/${JOB_ID}/export-training`);
-                if (!res.ok) throw new Error("Export failed");
-                const data = await res.json();
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-                downloadBlob(blob, `training_${JOB_ID.substring(0, 8)}.json`);
-            } catch (err) {
-                alert("Export failed: " + err.message);
-            }
-        });
+        // Export dropdown
+        const exportMenuBtn = document.getElementById("btn-export-menu");
+        const exportDD = document.getElementById("export-dropdown");
+        if (exportMenuBtn && exportDD) {
+            exportMenuBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                exportDD.classList.toggle("hidden");
+            });
+            document.addEventListener("click", () => exportDD.classList.add("hidden"));
 
-        btnDownloadTxt.addEventListener("click", async () => {
-            await saveNow();
-            const text = segments.map(s => s.text).join("\n");
-            const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-            downloadBlob(blob, `transcript_${JOB_ID.substring(0, 8)}.txt`);
-        });
+            exportDD.querySelectorAll(".export-item").forEach(item => {
+                item.addEventListener("click", async () => {
+                    exportDD.classList.add("hidden");
+                    await saveNow();
+                    const fmt = item.dataset.format;
+                    exportTranscript(fmt);
+                });
+            });
+        }
+
+        // Find & Replace button
+        const frBtn = document.getElementById("btn-find-replace");
+        if (frBtn) frBtn.addEventListener("click", toggleFindReplace);
+
+        // Check AI availability
+        checkAIAvailability();
 
         // Toggle original/edited view
         const toggleBtn = document.getElementById("btn-toggle-original");
@@ -670,6 +955,308 @@
         a.download = filename;
         a.click();
         URL.revokeObjectURL(url);
+    }
+
+    // --- Export Formats ---
+    function exportTranscript(format) {
+        const slug = JOB_ID.substring(0, 8);
+        switch (format) {
+            case "srt": {
+                const lines = segments.map((s, i) => {
+                    const start = srtTime(s.start);
+                    const end = srtTime(s.end);
+                    return `${i + 1}\n${start} --> ${end}\n${s.text}\n`;
+                });
+                downloadBlob(new Blob([lines.join("\n")], { type: "text/srt" }), `transcript_${slug}.srt`);
+                break;
+            }
+            case "dialogue": {
+                const lines = segments.map(s => `${s.speaker || "Spreker 1"}: ${s.text}`);
+                downloadBlob(new Blob([lines.join("\n\n")], { type: "text/plain;charset=utf-8" }), `dialogue_${slug}.txt`);
+                break;
+            }
+            case "clean": {
+                const text = segments.map(s => s.text).join(" ");
+                downloadBlob(new Blob([text], { type: "text/plain;charset=utf-8" }), `clean_${slug}.txt`);
+                break;
+            }
+            case "json": {
+                (async () => {
+                    try {
+                        const res = await fetch(`/api/v1/jobs/${JOB_ID}/export-training`);
+                        if (!res.ok) throw new Error("Export failed");
+                        const data = await res.json();
+                        downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }), `training_${slug}.json`);
+                    } catch (err) { alert("Export failed: " + err.message); }
+                })();
+                break;
+            }
+            case "txt": {
+                const text = segments.map(s => s.text).join("\n");
+                downloadBlob(new Blob([text], { type: "text/plain;charset=utf-8" }), `transcript_${slug}.txt`);
+                break;
+            }
+        }
+    }
+
+    function srtTime(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        const ms = Math.floor((seconds % 1) * 1000);
+        return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")},${String(ms).padStart(3,"0")}`;
+    }
+
+    // --- Find & Replace ---
+    let frMatches = [];
+    let frCurrentIdx = -1;
+
+    function toggleFindReplace() {
+        const panel = document.getElementById("find-replace-panel");
+        panel.classList.toggle("hidden");
+        if (!panel.classList.contains("hidden")) {
+            document.getElementById("fr-find-input").focus();
+        } else {
+            clearFindHighlights();
+        }
+    }
+
+    function clearFindHighlights() {
+        container.querySelectorAll(".find-highlight, .find-highlight-active").forEach(el => {
+            const parent = el.parentNode;
+            parent.replaceChild(document.createTextNode(el.textContent), el);
+            parent.normalize();
+        });
+        frMatches = [];
+        frCurrentIdx = -1;
+    }
+
+    function setupFindReplace() {
+        const panel = document.getElementById("find-replace-panel");
+        if (!panel) return;
+
+        const findInput = document.getElementById("fr-find-input");
+        const replInput = document.getElementById("fr-replace-input");
+        const matchCount = document.getElementById("fr-match-count");
+        const closeBtn = document.getElementById("fr-close");
+
+        // Tab switching
+        panel.querySelectorAll(".fr-tab").forEach(tab => {
+            tab.addEventListener("click", () => {
+                panel.querySelectorAll(".fr-tab").forEach(t => t.classList.remove("active"));
+                tab.classList.add("active");
+                document.getElementById("fr-find-tab").classList.toggle("hidden", tab.dataset.tab !== "find");
+                document.getElementById("fr-common-tab").classList.toggle("hidden", tab.dataset.tab !== "common");
+                if (tab.dataset.tab === "common") populateCommonFixes();
+            });
+        });
+
+        closeBtn.addEventListener("click", () => {
+            panel.classList.add("hidden");
+            clearFindHighlights();
+        });
+
+        // Live search
+        findInput.addEventListener("input", () => doFind(findInput.value));
+
+        // Navigation
+        document.getElementById("fr-prev").addEventListener("click", () => navigateMatch(-1));
+        document.getElementById("fr-next").addEventListener("click", () => navigateMatch(1));
+
+        findInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                navigateMatch(e.shiftKey ? -1 : 1);
+            }
+        });
+
+        // Replace
+        document.getElementById("fr-replace-one").addEventListener("click", () => {
+            replaceCurrentMatch(replInput.value);
+        });
+
+        document.getElementById("fr-replace-all").addEventListener("click", () => {
+            replaceAllMatches(findInput.value, replInput.value);
+        });
+    }
+
+    function doFind(query) {
+        clearFindHighlights();
+        const matchCountEl = document.getElementById("fr-match-count");
+        if (!query) { matchCountEl.textContent = ""; return; }
+
+        const textEls = container.querySelectorAll(".segment-text");
+        let total = 0;
+
+        textEls.forEach(el => {
+            const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+            const textNodes = [];
+            while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+            textNodes.forEach(node => {
+                const text = node.textContent;
+                const lower = text.toLowerCase();
+                const qLower = query.toLowerCase();
+                let idx = 0;
+                const parts = [];
+                let lastIdx = 0;
+
+                while ((idx = lower.indexOf(qLower, idx)) !== -1) {
+                    if (idx > lastIdx) parts.push(document.createTextNode(text.substring(lastIdx, idx)));
+                    const mark = document.createElement("mark");
+                    mark.className = "find-highlight";
+                    mark.textContent = text.substring(idx, idx + query.length);
+                    parts.push(mark);
+                    total++;
+                    lastIdx = idx + query.length;
+                    idx = lastIdx;
+                }
+
+                if (parts.length > 0) {
+                    if (lastIdx < text.length) parts.push(document.createTextNode(text.substring(lastIdx)));
+                    const frag = document.createDocumentFragment();
+                    parts.forEach(p => frag.appendChild(p));
+                    node.parentNode.replaceChild(frag, node);
+                }
+            });
+        });
+
+        frMatches = [...container.querySelectorAll(".find-highlight")];
+        frCurrentIdx = frMatches.length > 0 ? 0 : -1;
+        matchCountEl.textContent = frMatches.length > 0 ? `1 / ${frMatches.length}` : "0 results";
+        if (frCurrentIdx >= 0) {
+            frMatches[0].classList.add("find-highlight-active");
+            frMatches[0].scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+    }
+
+    function navigateMatch(dir) {
+        if (frMatches.length === 0) return;
+        frMatches[frCurrentIdx]?.classList.remove("find-highlight-active");
+        frCurrentIdx = (frCurrentIdx + dir + frMatches.length) % frMatches.length;
+        frMatches[frCurrentIdx].classList.add("find-highlight-active");
+        frMatches[frCurrentIdx].scrollIntoView({ behavior: "smooth", block: "center" });
+        document.getElementById("fr-match-count").textContent = `${frCurrentIdx + 1} / ${frMatches.length}`;
+    }
+
+    function replaceCurrentMatch(replacement) {
+        if (frCurrentIdx < 0 || !frMatches[frCurrentIdx]) return;
+        const mark = frMatches[frCurrentIdx];
+        const textNode = document.createTextNode(replacement);
+        mark.parentNode.replaceChild(textNode, mark);
+        // Sync back to segments
+        syncTextToSegments();
+        const query = document.getElementById("fr-find-input").value;
+        doFind(query);
+    }
+
+    function replaceAllMatches(query, replacement) {
+        if (!query) return;
+        segments.forEach(seg => {
+            seg.text = seg.text.split(query).join(replacement);
+            seg.words = [];
+        });
+        scheduleSave();
+        renderSegments();
+        doFind(query);
+    }
+
+    function syncTextToSegments() {
+        container.querySelectorAll(".segment-text").forEach(el => {
+            const idx = parseInt(el.dataset.segIdx, 10);
+            if (!isNaN(idx) && segments[idx]) {
+                segments[idx].text = el.innerText.trim();
+                segments[idx].words = [];
+            }
+        });
+        scheduleSave();
+    }
+
+    // --- Common Fixes ---
+    const COMMON_FIXES = [
+        { find: " ek is ", replace: " ek's " },
+        { find: " dit is ", replace: " dis " },
+        { find: " het nie ", replace: " het nie ... nie" },
+        { find: "Dankie vir die kyk.", replace: "" },
+        { find: "Ondertitels deur die Amara.org-gemeenskap", replace: "" },
+    ];
+
+    function populateCommonFixes() {
+        const list = document.getElementById("fr-common-list");
+        list.innerHTML = "";
+
+        COMMON_FIXES.forEach((fix, i) => {
+            // Count occurrences
+            let count = 0;
+            segments.forEach(s => {
+                let idx = 0;
+                while ((idx = s.text.indexOf(fix.find, idx)) !== -1) { count++; idx += fix.find.length; }
+            });
+
+            const item = document.createElement("div");
+            item.className = "fr-common-item";
+            item.innerHTML = `
+                <span class="fr-common-find">${escapeHTML(fix.find)}</span>
+                <span class="fr-common-arrow">→</span>
+                <span class="fr-common-replace">${fix.replace ? escapeHTML(fix.replace) : "(remove)"}</span>
+                <span class="fr-common-count">${count} found</span>
+                <button class="fr-common-apply" ${count === 0 ? "disabled" : ""}>Apply</button>
+            `;
+            item.querySelector(".fr-common-apply").addEventListener("click", () => {
+                segments.forEach(s => {
+                    s.text = s.text.split(fix.find).join(fix.replace);
+                    s.words = [];
+                });
+                scheduleSave();
+                renderSegments();
+                populateCommonFixes();
+            });
+            list.appendChild(item);
+        });
+
+        // Apply all button
+        document.getElementById("fr-apply-all").addEventListener("click", () => {
+            COMMON_FIXES.forEach(fix => {
+                segments.forEach(s => {
+                    s.text = s.text.split(fix.find).join(fix.replace);
+                    s.words = [];
+                });
+            });
+            scheduleSave();
+            renderSegments();
+            populateCommonFixes();
+        });
+    }
+
+    function escapeHTML(str) {
+        const d = document.createElement("div");
+        d.textContent = str;
+        return d.innerHTML;
+    }
+
+    // --- WaveSurfer Integration ---
+    let wavesurfer = null;
+
+    function initWaveSurfer() {
+        if (typeof WaveSurfer === "undefined" || !audioEl.src) return;
+        try {
+            wavesurfer = WaveSurfer.create({
+                container: "#waveform-container",
+                waveColor: "#ffd8a8",
+                progressColor: "#e67700",
+                cursorColor: "#c92a2a",
+                barWidth: 2,
+                barGap: 1,
+                barRadius: 2,
+                height: 40,
+                responsive: true,
+                backend: "MediaElement",
+                mediaControls: false,
+                media: audioEl,
+            });
+        } catch (err) {
+            console.warn("WaveSurfer init failed:", err);
+        }
     }
 
     // --- Utilities ---

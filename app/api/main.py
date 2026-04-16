@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, update
 
-from app.api.routes import jobs, payfast, settings as settings_routes, upload
+from app.api.routes import ai, jobs, payfast, settings as settings_routes, upload
 from app.core.database import AsyncSessionLocal, async_engine
 from app.core.models import Job
 
@@ -58,6 +58,7 @@ app.include_router(upload.router, prefix="/api/v1", tags=["upload"])
 app.include_router(jobs.router, prefix="/api/v1", tags=["jobs"])
 app.include_router(payfast.router, prefix="/api/v1", tags=["payfast"])
 app.include_router(settings_routes.router, prefix="/api/v1", tags=["settings"])
+app.include_router(ai.router, prefix="/api/v1", tags=["ai"])
 
 
 @app.get("/")

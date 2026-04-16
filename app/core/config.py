@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     # Webhooks
     N8N_WEBHOOK_URL: str = ""
 
+    # AI Correction (optional)
+    ANTHROPIC_API_KEY: str = ""
+
     # App
     DEBUG: bool = False
 
