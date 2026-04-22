@@ -17,7 +17,7 @@ COPY requirements/base.txt requirements/worker.txt training/requirements.txt ./r
 RUN pip install --no-cache-dir -r requirements/worker.txt \
     && pip install --no-cache-dir transformers>=4.39 datasets>=2.18 accelerate>=0.28 \
        evaluate>=0.4 jiwer>=3.0 soundfile>=0.12 librosa>=0.10 \
-       ctranslate2>=4.0 huggingface-hub>=0.21
+       ctranslate2>=4.0 huggingface-hub>=0.21 torchcodec
 
 COPY app/ ./app/
 COPY training/ ./training/
